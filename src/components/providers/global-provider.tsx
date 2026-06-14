@@ -2,6 +2,7 @@
 
 import type React from "react";
 import { TRPCReactProvider } from "@/trpc/react";
+import { NavSlotProvider } from "../features/sidebar/navslot-context";
 import { ThemeProvider } from "./theme-provider";
 
 type Props = {
@@ -16,7 +17,9 @@ const GlobalProviderWrapper = ({ children }: Props) => {
 			disableTransitionOnChange
 			enableSystem
 		>
-			<TRPCReactProvider>{children}</TRPCReactProvider>
+			<TRPCReactProvider>
+				<NavSlotProvider>{children}</NavSlotProvider>
+			</TRPCReactProvider>
 		</ThemeProvider>
 	);
 };

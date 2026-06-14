@@ -1,7 +1,7 @@
 import "@/styles/globals.css";
 
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Inter } from "next/font/google";
+import { Anton_SC, Geist, Geist_Mono, Inter } from "next/font/google";
 import localFont from "next/font/local";
 import GlobalProviderWrapper from "@/components/providers/global-provider";
 import { cn } from "@/lib/utils";
@@ -26,6 +26,12 @@ const geistMono = Geist_Mono({
 	weight: ["400", "500", "600", "700"],
 });
 
+const antonSC = Anton_SC({
+	variable: "--font-anton-sc",
+	subsets: ["latin"],
+	weight: ["400"],
+});
+
 const copperBtRegular = localFont({
 	src: "../../public/assets/fonts/copper_bt_regular.woff",
 	variable: "--font-copper-bt-regular",
@@ -41,6 +47,7 @@ export default function RootLayout({
 				geist.variable,
 				geistMono.variable,
 				copperBtRegular.variable,
+				antonSC.variable,
 				"font-sans",
 				inter.variable,
 			)}

@@ -1,5 +1,5 @@
-CREATE EXTENSION IF NOT EXISTS vector;
---> statement-breakpoint
+CREATE TYPE "public"."chunk_type" AS ENUM('summary', 'body', 'entities', 'action_items');--> statement-breakpoint
+CREATE TYPE "public"."importance_level" AS ENUM('low', 'medium', 'high');--> statement-breakpoint
 CREATE TABLE "activity_log" (
 	"id" text PRIMARY KEY NOT NULL,
 	"user_id" text NOT NULL,
@@ -109,12 +109,32 @@ CREATE TABLE "corsair_integrations" (
 );
 --> statement-breakpoint
 CREATE TABLE "email_ai_metadata" (
-	"entity_id" text PRIMARY KEY NOT NULL,
+	"email_id" text PRIMARY KEY NOT NULL,
 	"account_id" text NOT NULL,
+	"thread_id" text,
+	"subject" text,
+	"from_address" text,
 	"summary" text NOT NULL,
-	"importance" text DEFAULT 'medium' NOT NULL,
+	"action_items" text,
+	"entities" text,
+	"importance" "importance_level" DEFAULT 'medium' NOT NULL,
 	"category" text,
+	"has_meeting_signal" boolean DEFAULT false NOT NULL,
+	"has_deadline" boolean DEFAULT false NOT NULL,
+	"has_invoice" boolean DEFAULT false NOT NULL,
+	"has_attachment" boolean DEFAULT false NOT NULL,
+	"email_date" timestamp NOT NULL,
+	"created_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "email_chunks" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"email_id" text NOT NULL,
+	"account_id" text NOT NULL,
+	"chunk_type" "chunk_type" NOT NULL,
+	"content" text NOT NULL,
 	"embedding" vector(1536) NOT NULL,
+	"email_date" timestamp NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
@@ -135,6 +155,11 @@ ALTER TABLE "corsair_accounts" ADD CONSTRAINT "corsair_accounts_integration_id_c
 ALTER TABLE "corsair_entities" ADD CONSTRAINT "corsair_entities_account_id_corsair_accounts_id_fk" FOREIGN KEY ("account_id") REFERENCES "public"."corsair_accounts"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "corsair_events" ADD CONSTRAINT "corsair_events_account_id_corsair_accounts_id_fk" FOREIGN KEY ("account_id") REFERENCES "public"."corsair_accounts"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "email_ai_metadata" ADD CONSTRAINT "email_ai_metadata_account_id_corsair_accounts_id_fk" FOREIGN KEY ("account_id") REFERENCES "public"."corsair_accounts"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "email_chunks" ADD CONSTRAINT "email_chunks_email_id_email_ai_metadata_email_id_fk" FOREIGN KEY ("email_id") REFERENCES "public"."email_ai_metadata"("email_id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "email_chunks" ADD CONSTRAINT "email_chunks_account_id_corsair_accounts_id_fk" FOREIGN KEY ("account_id") REFERENCES "public"."corsair_accounts"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "usage" ADD CONSTRAINT "usage_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "created_by_idx" ON "pg-drizzle_post" USING btree ("createdById");--> statement-breakpoint
-CREATE INDEX "name_idx" ON "pg-drizzle_post" USING btree ("name");
+CREATE INDEX "name_idx" ON "pg-drizzle_post" USING btree ("name");--> statement-breakpoint
+CREATE INDEX "email_chunks_embedding_idx" ON "email_chunks" USING hnsw ("embedding" vector_cosine_ops);--> statement-breakpoint
+CREATE INDEX "email_chunks_account_date_idx" ON "email_chunks" USING btree ("account_id","email_date");--> statement-breakpoint
+CREATE INDEX "email_chunks_type_idx" ON "email_chunks" USING btree ("account_id","chunk_type");

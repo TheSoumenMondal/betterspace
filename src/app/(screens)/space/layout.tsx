@@ -2,17 +2,15 @@ import { redirect } from "next/navigation";
 import type React from "react";
 import { getSession } from "@/server/better-auth/server";
 
-type Props = {
+export default async function SpaceLayout({
+	children,
+}: {
 	children: React.ReactNode;
-};
-
-const layout = async ({ children }: Props) => {
+}) {
 	const session = await getSession();
-	if (!session) {
-		redirect("/auth/login");
+	if (session && !session.user.hasCompletedOnboarding) {
+		redirect("/onboarding");
 	}
 
-	return <div>{children}</div>;
-};
-
-export default layout;
+	return <>{children}</>;
+}

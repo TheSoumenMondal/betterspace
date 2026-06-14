@@ -1,11 +1,22 @@
 import Image from "next/image";
+import { redirect } from "next/navigation";
 import type * as React from "react";
+import { getSession } from "@/server/better-auth/server";
 
 type Props = {
 	children: React.ReactNode;
 };
 
-const layout = ({ children }: Props) => {
+const layout = async ({ children }: Props) => {
+	const session = await getSession();
+	if (session) {
+		if (session?.user.hasCompletedOnboarding) {
+			redirect("/space");
+		} else {
+			redirect("/onboarding");
+		}
+	}
+
 	return (
 		<div className="grid min-h-dvh grid-cols-3">
 			<div className="h-full py-6 pl-6 max-lg:hidden">

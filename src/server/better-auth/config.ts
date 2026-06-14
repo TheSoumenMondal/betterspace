@@ -21,6 +21,26 @@ export const auth = betterAuth({
 			clientSecret: env.BETTER_AUTH_GOOGLE_CLIENT_SECRET,
 		},
 	},
+	user: {
+		additionalFields: {
+			hasCompletedOnboarding: {
+				type: "boolean",
+				defaultValue: false,
+				required: true,
+			},
+			plan: {
+				type: "string",
+				defaultValue: "free",
+				required: true,
+			},
+			nextAllowedSyncAt: {
+				type: "date",
+				defaultValue: null,
+				required: false,
+			},
+		},
+	},
+
 	plugins: [nextCookies()],
 });
 

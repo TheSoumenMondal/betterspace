@@ -52,7 +52,7 @@ const LoginPageComponent = () => {
 					Login to your account
 				</p>
 				<p className="font-geist-sans text-muted-foreground text-sm">
-					Enter you credentials{" "}
+					Enter your credentials{" "}
 				</p>
 			</div>
 			<div className="space-y-3">
@@ -140,7 +140,7 @@ const LoginPageComponent = () => {
 				</Button>
 			</form>
 			<div className="pt-5 text-muted-foreground text-xs">
-				Don't have an account ?
+				Don't have an account?
 				<Link
 					className="ml-1 font-medium text-primary hover:underline"
 					href={"/auth/signup"}

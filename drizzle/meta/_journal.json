@@ -8,6 +8,13 @@
 			"when": 1781461346301,
 			"tag": "0000_aberrant_monster_badoon",
 			"breakpoints": true
+		},
+		{
+			"idx": 1,
+			"version": "7",
+			"when": 1781468483456,
+			"tag": "0001_breezy_miss_america",
+			"breakpoints": true
 		}
 	]
 }

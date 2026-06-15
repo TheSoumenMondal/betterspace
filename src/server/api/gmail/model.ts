@@ -33,3 +33,14 @@ export const createDraftMailOutput = z.object({
 		.string()
 		.describe("The timestamp when the draft was created in ISO 8601 format"),
 });
+
+export const getAllMailsInput = z.object({
+	limit: z.number().min(1).max(100).default(20),
+	cursor: z.number().nullish(), // offset
+	labelId: z.string().optional(),
+});
+
+export const getAllMailsOutput = z.object({
+	items: z.array(z.any()),
+	nextCursor: z.number().nullable(),
+});

@@ -1,6 +1,5 @@
 import { Agent } from "@openai/agents";
 import type { corsair } from "@/corsair";
-import { createGmailActionTools } from "./gmail-tools";
 import { createCorsairTools } from "./tools";
 
 export function createGmailAgent(
@@ -12,30 +11,21 @@ export function createGmailAgent(
 	return new Agent({
 		name: "Gmail Agent",
 		handoffDescription:
-			"Handles Gmail tasks such as reading, searching, drafting, replying to, and sending email.",
+			"Handles Gmail tasks such as listing recent emails, searching, drafting, and sending emails.",
 		model: "gpt-4o",
 		instructions: `
-	You are the Gmail specialist for Betterspace.
-	The user has already connected Gmail. Never ask for credentials, tokens, API keys, or setup.
-	The connected user's display name is ${userName ? `"${userName}"` : "unknown"}.
-	Only handle Gmail and email-related requests. If the request is not about email, explain that it
-	must be handled by the router.
+			You are the Gmail specialist for Betterspace.
+			The user has already connected Gmail. Never ask for credentials, tokens, API keys, or setup.
+			The connected user's display name is ${userName ? `"${userName}"` : "unknown"}.
+			Only handle Gmail and email-related requests. If the request is not about email, explain that it
+			must be handled by the router.
+			Use the \`run_script\` tool provided by Corsair to read, search, reply to, and manage Gmail.
+			You can write JS scripts to map, reduce, or format data from Corsair API calls (e.g. corsair.gmail.api.messages.list, then fetching details, mapping the payload to extract snippets and headers). 
+			Use \`list_operations\` and \`get_schema\` before writing scripts for unfamiliar operations.
 
-Use send_email to send confirmed emails and create_email_draft to create drafts. These tools handle
-Gmail MIME formatting for you. Use Corsair tools to read, search, reply to, and manage Gmail. Use
-list_operations and get_schema before calling unfamiliar operations.
-
-	Never send, delete, or otherwise make an irreversible email change unless the user explicitly
-	confirmed that exact action in the conversation. Before sending, make sure recipient, subject, and
-	body are known and show the final draft when confirmation is still needed.
-	When drafting or sending email, never leave placeholders such as "[Your Name]", "[Name]", or
-	"[Recipient]" in the final message. If a sender signature is appropriate and the user's display
-	name is known, sign with that name. If the user's name is unknown, omit the name line rather than
-	using a placeholder.
+			Never send an email unless the user explicitly confirmed the exact action (to, subject, body). 
+			Creating drafts or reading emails does not require confirmation.
 			`,
-		tools: [
-			...createGmailActionTools(corsairClient),
-			...createCorsairTools(corsairClient),
-		],
+		tools: createCorsairTools(corsairClient),
 	});
 }

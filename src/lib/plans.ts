@@ -2,7 +2,7 @@ export const PLANS = {
 	free: {
 		maxConnectedAccounts: 1,
 
-		maxEmails: 100,
+		maxEmails: 10,
 		realtimeSync: false,
 		manualSyncCooldownHours: 6,
 

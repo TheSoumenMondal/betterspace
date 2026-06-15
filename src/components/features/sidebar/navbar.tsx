@@ -71,6 +71,7 @@ export function AppNavbar() {
 	const { toggleSidebar, open } = useSidebar();
 	const pathname = usePathname();
 	const { navSlot } = useNavSlot();
+	const isConversationRoute = /^\/space\/[^/]+$/.test(pathname);
 
 	return (
 		<header className="sticky top-0 z-10 flex h-12 shrink-0 items-center gap-3 border-b bg-sidebar px-2">
@@ -87,9 +88,19 @@ export function AppNavbar() {
 				/>
 			</Button>
 			<div className="h-4 w-px bg-border" />
-			<Breadcrumb pathname={pathname} />
+			{isConversationRoute ? (
+				<div className="pointer-events-none absolute left-1/2 w-full max-w-[50%] -translate-x-1/2 text-center">
+					{navSlot ?? (
+						<span className="font-medium text-foreground text-sm">
+							Conversation
+						</span>
+					)}
+				</div>
+			) : (
+				<Breadcrumb pathname={pathname} />
+			)}
 
-			{navSlot && (
+			{!isConversationRoute && navSlot && (
 				<>
 					<div className="mx-1 h-4 w-px bg-border" />
 					<div className="flex min-w-0 flex-1 items-center gap-2">

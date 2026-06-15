@@ -1,4 +1,5 @@
 export * from "./models/activity-log";
+export * from "./models/agent-history";
 export * from "./models/auth";
 export * from "./models/calendar";
 export * from "./models/corsair";

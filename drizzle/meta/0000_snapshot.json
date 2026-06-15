@@ -1,5 +1,5 @@
 {
-	"id": "d250455c-6ddf-4aab-887f-2b9ca168138c",
+	"id": "994cfd28-8a15-445b-8094-4f98cca9d88c",
 	"prevId": "00000000-0000-0000-0000-000000000000",
 	"version": "7",
 	"dialect": "postgresql",
@@ -50,6 +50,117 @@
 					"columnsFrom": ["user_id"],
 					"columnsTo": ["id"],
 					"onDelete": "no action",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": false
+		},
+		"public.conversations": {
+			"name": "conversations",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "uuid",
+					"primaryKey": true,
+					"notNull": true,
+					"default": "gen_random_uuid()"
+				},
+				"user_id": {
+					"name": "user_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"title": {
+					"name": "title",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp",
+					"primaryKey": false,
+					"notNull": false,
+					"default": "now()"
+				},
+				"updated_at": {
+					"name": "updated_at",
+					"type": "timestamp",
+					"primaryKey": false,
+					"notNull": false,
+					"default": "now()"
+				}
+			},
+			"indexes": {},
+			"foreignKeys": {
+				"conversations_user_id_user_id_fk": {
+					"name": "conversations_user_id_user_id_fk",
+					"tableFrom": "conversations",
+					"tableTo": "user",
+					"columnsFrom": ["user_id"],
+					"columnsTo": ["id"],
+					"onDelete": "no action",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": false
+		},
+		"public.messages": {
+			"name": "messages",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "uuid",
+					"primaryKey": true,
+					"notNull": true,
+					"default": "gen_random_uuid()"
+				},
+				"conversation_id": {
+					"name": "conversation_id",
+					"type": "uuid",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"role": {
+					"name": "role",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"content": {
+					"name": "content",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp",
+					"primaryKey": false,
+					"notNull": false,
+					"default": "now()"
+				}
+			},
+			"indexes": {},
+			"foreignKeys": {
+				"messages_conversation_id_conversations_id_fk": {
+					"name": "messages_conversation_id_conversations_id_fk",
+					"tableFrom": "messages",
+					"tableTo": "conversations",
+					"columnsFrom": ["conversation_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
 					"onUpdate": "no action"
 				}
 			},
@@ -151,101 +262,6 @@
 					"columnsFrom": ["user_id"],
 					"columnsTo": ["id"],
 					"onDelete": "cascade",
-					"onUpdate": "no action"
-				}
-			},
-			"compositePrimaryKeys": {},
-			"uniqueConstraints": {},
-			"policies": {},
-			"checkConstraints": {},
-			"isRLSEnabled": false
-		},
-		"public.pg-drizzle_post": {
-			"name": "pg-drizzle_post",
-			"schema": "",
-			"columns": {
-				"id": {
-					"name": "id",
-					"type": "integer",
-					"primaryKey": true,
-					"notNull": true,
-					"identity": {
-						"type": "byDefault",
-						"name": "pg-drizzle_post_id_seq",
-						"schema": "public",
-						"increment": "1",
-						"startWith": "1",
-						"minValue": "1",
-						"maxValue": "2147483647",
-						"cache": "1",
-						"cycle": false
-					}
-				},
-				"name": {
-					"name": "name",
-					"type": "varchar(256)",
-					"primaryKey": false,
-					"notNull": false
-				},
-				"createdById": {
-					"name": "createdById",
-					"type": "varchar(255)",
-					"primaryKey": false,
-					"notNull": true
-				},
-				"createdAt": {
-					"name": "createdAt",
-					"type": "timestamp with time zone",
-					"primaryKey": false,
-					"notNull": true
-				},
-				"updatedAt": {
-					"name": "updatedAt",
-					"type": "timestamp with time zone",
-					"primaryKey": false,
-					"notNull": false
-				}
-			},
-			"indexes": {
-				"created_by_idx": {
-					"name": "created_by_idx",
-					"columns": [
-						{
-							"expression": "createdById",
-							"isExpression": false,
-							"asc": true,
-							"nulls": "last"
-						}
-					],
-					"isUnique": false,
-					"concurrently": false,
-					"method": "btree",
-					"with": {}
-				},
-				"name_idx": {
-					"name": "name_idx",
-					"columns": [
-						{
-							"expression": "name",
-							"isExpression": false,
-							"asc": true,
-							"nulls": "last"
-						}
-					],
-					"isUnique": false,
-					"concurrently": false,
-					"method": "btree",
-					"with": {}
-				}
-			},
-			"foreignKeys": {
-				"pg-drizzle_post_createdById_user_id_fk": {
-					"name": "pg-drizzle_post_createdById_user_id_fk",
-					"tableFrom": "pg-drizzle_post",
-					"tableTo": "user",
-					"columnsFrom": ["createdById"],
-					"columnsTo": ["id"],
-					"onDelete": "no action",
 					"onUpdate": "no action"
 				}
 			},
@@ -462,6 +478,283 @@
 			},
 			"indexes": {},
 			"foreignKeys": {},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": false
+		},
+		"public.calendar_event_chunks": {
+			"name": "calendar_event_chunks",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "uuid",
+					"primaryKey": true,
+					"notNull": true,
+					"default": "gen_random_uuid()"
+				},
+				"event_id": {
+					"name": "event_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"account_id": {
+					"name": "account_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"chunk_type": {
+					"name": "chunk_type",
+					"type": "calendar_chunk_type",
+					"typeSchema": "public",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"content": {
+					"name": "content",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"embedding": {
+					"name": "embedding",
+					"type": "vector(1536)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"event_at": {
+					"name": "event_at",
+					"type": "timestamp",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				}
+			},
+			"indexes": {
+				"calendar_event_chunks_embedding_idx": {
+					"name": "calendar_event_chunks_embedding_idx",
+					"columns": [
+						{
+							"expression": "embedding",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last",
+							"opclass": "vector_cosine_ops"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "hnsw",
+					"with": {}
+				},
+				"calendar_event_chunks_account_date_idx": {
+					"name": "calendar_event_chunks_account_date_idx",
+					"columns": [
+						{
+							"expression": "account_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "event_at",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"calendar_event_chunks_type_idx": {
+					"name": "calendar_event_chunks_type_idx",
+					"columns": [
+						{
+							"expression": "account_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "chunk_type",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				}
+			},
+			"foreignKeys": {
+				"calendar_event_chunks_event_id_calendar_event_metadata_event_id_fk": {
+					"name": "calendar_event_chunks_event_id_calendar_event_metadata_event_id_fk",
+					"tableFrom": "calendar_event_chunks",
+					"tableTo": "calendar_event_metadata",
+					"columnsFrom": ["event_id"],
+					"columnsTo": ["event_id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				},
+				"calendar_event_chunks_account_id_corsair_accounts_id_fk": {
+					"name": "calendar_event_chunks_account_id_corsair_accounts_id_fk",
+					"tableFrom": "calendar_event_chunks",
+					"tableTo": "corsair_accounts",
+					"columnsFrom": ["account_id"],
+					"columnsTo": ["id"],
+					"onDelete": "no action",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": false
+		},
+		"public.calendar_event_metadata": {
+			"name": "calendar_event_metadata",
+			"schema": "",
+			"columns": {
+				"event_id": {
+					"name": "event_id",
+					"type": "text",
+					"primaryKey": true,
+					"notNull": true
+				},
+				"account_id": {
+					"name": "account_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"calendar_id": {
+					"name": "calendar_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"i_cal_uid": {
+					"name": "i_cal_uid",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"summary": {
+					"name": "summary",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"description": {
+					"name": "description",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"location": {
+					"name": "location",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"status": {
+					"name": "status",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"event_type": {
+					"name": "event_type",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"start_at": {
+					"name": "start_at",
+					"type": "timestamp",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"end_at": {
+					"name": "end_at",
+					"type": "timestamp",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"time_zone": {
+					"name": "time_zone",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"all_day": {
+					"name": "all_day",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": true,
+					"default": false
+				},
+				"organizer_email": {
+					"name": "organizer_email",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"organizer_name": {
+					"name": "organizer_name",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"attendees": {
+					"name": "attendees",
+					"type": "jsonb",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "'[]'::jsonb"
+				},
+				"raw_event": {
+					"name": "raw_event",
+					"type": "jsonb",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "'{}'::jsonb"
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				}
+			},
+			"indexes": {},
+			"foreignKeys": {
+				"calendar_event_metadata_account_id_corsair_accounts_id_fk": {
+					"name": "calendar_event_metadata_account_id_corsair_accounts_id_fk",
+					"tableFrom": "calendar_event_metadata",
+					"tableTo": "corsair_accounts",
+					"columnsFrom": ["account_id"],
+					"columnsTo": ["id"],
+					"onDelete": "no action",
+					"onUpdate": "no action"
+				}
+			},
 			"compositePrimaryKeys": {},
 			"uniqueConstraints": {},
 			"policies": {},
@@ -1062,6 +1355,11 @@
 		}
 	},
 	"enums": {
+		"public.calendar_chunk_type": {
+			"name": "calendar_chunk_type",
+			"schema": "public",
+			"values": ["summary", "details"]
+		},
 		"public.chunk_type": {
 			"name": "chunk_type",
 			"schema": "public",

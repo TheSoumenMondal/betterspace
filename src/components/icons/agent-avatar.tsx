@@ -100,15 +100,16 @@ const generateGrid = (hash: number): Cell[][] => {
 	const grid: Cell[][] = [];
 
 	for (let y = 0; y < GRID_SIZE; y++) {
-		grid[y] = [];
+		const row: Cell[] = [];
 		for (let x = 0; x < GRID_SIZE; x++) {
-			grid[y][x] = {
+			row.push({
 				colorIndex: Math.floor(rng() * 3),
 				phase: rng() * Math.PI * 2,
 				brightness: 0.3 + rng() * 0.7,
 				sparklePhase: rng() * Math.PI * 2,
-			};
+			});
 		}
+		grid.push(row);
 	}
 
 	return grid;
@@ -179,8 +180,9 @@ const AgentAvatar = ({
 			// Draw pixel grid
 			for (let y = 0; y < GRID_SIZE; y++) {
 				for (let x = 0; x < GRID_SIZE; x++) {
-					const cell = grid[y][x];
-					const [h, s, l] = palette[cell.colorIndex];
+					const cell = grid[y]?.[x];
+					if (!cell) continue;
+					const [h, s, l] = palette[cell.colorIndex] ?? palette[0];
 
 					// Per-pixel pulse
 					const pulse = shouldAnimate

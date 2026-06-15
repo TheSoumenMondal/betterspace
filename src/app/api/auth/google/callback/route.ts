@@ -1,7 +1,7 @@
 import { processOAuthCallback } from "corsair/oauth";
 import { and, eq } from "drizzle-orm";
 import type { NextRequest } from "next/server";
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { corsair } from "@/corsair";
 import { inngest } from "@/inngest/client";
 import { auth } from "@/server/better-auth";
@@ -9,6 +9,31 @@ import { db } from "@/server/db";
 import { corsairAccounts, corsairIntegrations } from "@/server/db/schema";
 
 const REDIRECT_URI = `${process.env.APP_URL}/api/auth/google/callback`;
+
+function queueInitialSync(input: {
+	plugin: string;
+	userId: string;
+	accountId: string;
+}) {
+	const eventName =
+		input.plugin === "gmail"
+			? "sync/gmail.connected"
+			: "sync/calendar.connected";
+
+	after(async () => {
+		try {
+			await inngest.send({
+				name: eventName,
+				data: { userId: input.userId, accountId: input.accountId },
+			});
+		} catch (error) {
+			console.warn(
+				"[oauth/callback] OAuth succeeded, but initial sync enqueue failed:",
+				error,
+			);
+		}
+	});
+}
 
 export async function GET(request: NextRequest) {
 	const { searchParams } = new URL(request.url);
@@ -62,14 +87,10 @@ export async function GET(request: NextRequest) {
 			.limit(1);
 
 		if (account) {
-			const eventName =
-				result.plugin === "gmail"
-					? "sync/gmail.connected"
-					: "sync/calendar.connected";
-
-			await inngest.send({
-				name: eventName,
-				data: { userId: session.user.id, accountId: account.id },
+			queueInitialSync({
+				plugin: result.plugin,
+				userId: session.user.id,
+				accountId: account.id,
 			});
 		}
 

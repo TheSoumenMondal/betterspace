@@ -219,109 +219,132 @@ type GmailSyncHandlerContext = {
 
 type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
-export const gmailInitialSyncMail = inngest.createFunction(
-	{
-		id: "sync-gmail-initial-mail",
-		triggers: [{ event: GMAIL_CONNECTED_EVENT }, { event: GMAIL_SYNC_EVENT }],
-	},
-	async ({ event, step }: GmailSyncHandlerContext) => {
-		const data = event.data as GmailSyncEventData;
-		const loadedCount = data.loadedCount ?? 0;
-		const gmailClient = corsair.withTenant(data.userId);
-
-		const account = await step.run(
-			`load-user-plan-${data.userId}`,
-			async () => {
-				const [row] = await db
-					.select({ plan: user.plan })
-					.from(user)
-					.where(eq(user.id, data.userId))
-					.limit(1);
-
-				if (!row) {
-					throw new Error(`Unable to load user plan for ${data.userId}`);
-				}
-
-				return row;
-			},
+const immediateGmailSyncStep: GmailSyncStep = {
+	run: async (_id, fn) => fn(),
+	sendEvent: async <T = unknown>(_id: string, payload: { name: string }) => {
+		console.warn(
+			"[sync/gmail] Skipping follow-up page enqueue because Inngest is unavailable:",
+			payload.name,
 		);
+		return undefined as T;
+	},
+};
 
-		const plan = account.plan as keyof typeof PLANS;
-		const maxEmails = PLANS[plan].maxEmails;
-		const remaining = Math.max(maxEmails - loadedCount, 0);
+export async function runGmailInitialSync(
+	data: GmailSyncEventData,
+	step: GmailSyncStep = immediateGmailSyncStep,
+) {
+	const loadedCount = data.loadedCount ?? 0;
+	const gmailClient = corsair.withTenant(data.userId);
 
-		if (remaining === 0) {
-			return { loadedCount, maxEmails, completed: true };
+	const account = await step.run(`load-user-plan-${data.userId}`, async () => {
+		const [row] = await db
+			.select({ plan: user.plan })
+			.from(user)
+			.where(eq(user.id, data.userId))
+			.limit(1);
+
+		if (!row) {
+			throw new Error(`Unable to load user plan for ${data.userId}`);
 		}
 
-		const batchSize = Math.min(INITIAL_BATCH_SIZE, remaining);
+		return row;
+	});
 
-		const page = await step.run(
-			`list-gmail-messages-${data.accountId}-${loadedCount}`,
+	const plan = account.plan as keyof typeof PLANS;
+	const maxEmails = PLANS[plan].maxEmails;
+	const remaining = Math.max(maxEmails - loadedCount, 0);
+
+	if (remaining === 0) {
+		return { loadedCount, maxEmails, completed: true };
+	}
+
+	const batchSize = Math.min(INITIAL_BATCH_SIZE, remaining);
+
+	const page = await step.run(
+		`list-gmail-messages-${data.accountId}-${loadedCount}`,
+		async () => {
+			return gmailClient.gmail.api.messages.list({
+				maxResults: batchSize,
+				pageToken: data.pageToken ?? undefined,
+				includeSpamTrash: false,
+			});
+		},
+	);
+
+	const messages = (page.messages ?? []).filter(
+		(message: { id?: string } | undefined): message is GmailMessage =>
+			Boolean(message?.id),
+	);
+
+	let processedCount = 0;
+
+	for (const message of messages) {
+		if (processedCount >= batchSize) {
+			break;
+		}
+
+		const messageId = message.id;
+		if (!messageId) {
+			continue;
+		}
+
+		await step.run(
+			`sync-gmail-message-${data.accountId}-${messageId}`,
 			async () => {
-				return gmailClient.gmail.api.messages.list({
-					maxResults: batchSize,
-					pageToken: data.pageToken ?? undefined,
-					includeSpamTrash: false,
-				});
-			},
-		);
+				const fullMessage = (await gmailClient.gmail.api.messages.get({
+					id: messageId,
+					format: "full",
+				})) as GmailMessage;
 
-		const messages = (page.messages ?? []).filter(
-			(message: { id?: string } | undefined): message is GmailMessage =>
-				Boolean(message?.id),
-		);
-
-		let processedCount = 0;
-
-		for (const message of messages) {
-			if (processedCount >= batchSize) {
-				break;
-			}
-
-			const messageId = message.id;
-			if (!messageId) {
-				continue;
-			}
-
-			await step.run(
-				`sync-gmail-message-${data.accountId}-${messageId}`,
-				async () => {
-					const fullMessage = (await gmailClient.gmail.api.messages.get({
-						id: messageId,
-						format: "full",
-					})) as GmailMessage;
-
-					const text = buildAnalysisText(fullMessage);
-					const [analysis, bodyText] = await Promise.all([
-						generateSummaryAndEmbeddings(text),
-						Promise.resolve(
-							normalizeWhitespace(
-								collectTextParts(fullMessage.payload).join("\n") ||
-									fullMessage.snippet ||
-									text,
-							),
+				const text = buildAnalysisText(fullMessage);
+				const [analysis, bodyText] = await Promise.all([
+					generateSummaryAndEmbeddings(text),
+					Promise.resolve(
+						normalizeWhitespace(
+							collectTextParts(fullMessage.payload).join("\n") ||
+								fullMessage.snippet ||
+								text,
 						),
-					]);
+					),
+				]);
 
-					const subject = getHeaderValue(fullMessage.payload, "Subject");
-					const fromAddress = getHeaderValue(fullMessage.payload, "From");
-					const emailDate = toDate(fullMessage.internalDate);
-					const signals = detectSignals(`${text}\n${analysis.summary}`);
-					const embedding =
-						analysis.embedding.length > 0
-							? analysis.embedding
-							: new Array(1536).fill(0);
+				const subject = getHeaderValue(fullMessage.payload, "Subject");
+				const fromAddress = getHeaderValue(fullMessage.payload, "From");
+				const emailDate = toDate(fullMessage.internalDate);
+				const signals = detectSignals(`${text}\n${analysis.summary}`);
+				const embedding =
+					analysis.embedding.length > 0
+						? analysis.embedding
+						: new Array(1536).fill(0);
 
-					await db.transaction(async (tx: DbTransaction) => {
-						await tx
-							.delete(emailChunks)
-							.where(eq(emailChunks.emailId, messageId));
+				await db.transaction(async (tx: DbTransaction) => {
+					await tx
+						.delete(emailChunks)
+						.where(eq(emailChunks.emailId, messageId));
 
-						await tx
-							.insert(emailAiMetadata)
-							.values({
-								emailId: messageId,
+					await tx
+						.insert(emailAiMetadata)
+						.values({
+							emailId: messageId,
+							accountId: data.accountId,
+							threadId: fullMessage.threadId ?? null,
+							subject: subject || null,
+							fromAddress: fromAddress || null,
+							summary: analysis.summary,
+							actionItems: null,
+							entities: null,
+							importance: signals.importance,
+							category: null,
+							hasMeetingSignal: signals.hasMeetingSignal,
+							hasDeadline: signals.hasDeadline,
+							hasInvoice: signals.hasInvoice,
+							hasAttachment: hasAttachment(fullMessage.payload),
+							emailDate,
+						})
+						.onConflictDoUpdate({
+							target: emailAiMetadata.emailId,
+							set: {
 								accountId: data.accountId,
 								threadId: fullMessage.threadId ?? null,
 								subject: subject || null,
@@ -336,66 +359,57 @@ export const gmailInitialSyncMail = inngest.createFunction(
 								hasInvoice: signals.hasInvoice,
 								hasAttachment: hasAttachment(fullMessage.payload),
 								emailDate,
-							})
-							.onConflictDoUpdate({
-								target: emailAiMetadata.emailId,
-								set: {
-									accountId: data.accountId,
-									threadId: fullMessage.threadId ?? null,
-									subject: subject || null,
-									fromAddress: fromAddress || null,
-									summary: analysis.summary,
-									actionItems: null,
-									entities: null,
-									importance: signals.importance,
-									category: null,
-									hasMeetingSignal: signals.hasMeetingSignal,
-									hasDeadline: signals.hasDeadline,
-									hasInvoice: signals.hasInvoice,
-									hasAttachment: hasAttachment(fullMessage.payload),
-									emailDate,
-								},
-							});
+							},
+						});
 
-						await tx.insert(emailChunks).values(
-							buildMessageChunks({
-								summary: analysis.summary,
-								bodyText,
-								embedding,
-								emailId: messageId,
-								accountId: data.accountId,
-								emailDate,
-							}),
-						);
-					});
+					await tx.insert(emailChunks).values(
+						buildMessageChunks({
+							summary: analysis.summary,
+							bodyText,
+							embedding,
+							emailId: messageId,
+							accountId: data.accountId,
+							emailDate,
+						}),
+					);
+				});
+			},
+		);
+
+		processedCount += 1;
+	}
+
+	const nextPageToken = page.nextPageToken;
+	const nextLoadedCount = loadedCount + processedCount;
+
+	if (nextPageToken && nextLoadedCount < maxEmails) {
+		await step.sendEvent(
+			`enqueue-gmail-sync-${data.accountId}-${nextLoadedCount}`,
+			{
+				name: GMAIL_SYNC_EVENT,
+				data: {
+					userId: data.userId,
+					accountId: data.accountId,
+					pageToken: nextPageToken,
+					loadedCount: nextLoadedCount,
 				},
-			);
+			},
+		);
+	}
 
-			processedCount += 1;
-		}
+	return {
+		loadedCount: nextLoadedCount,
+		maxEmails,
+		completed: !nextPageToken || nextLoadedCount >= maxEmails,
+	};
+}
 
-		const nextPageToken = page.nextPageToken;
-		const nextLoadedCount = loadedCount + processedCount;
-
-		if (nextPageToken && nextLoadedCount < maxEmails) {
-			await step.sendEvent(
-				`enqueue-gmail-sync-${data.accountId}-${nextLoadedCount}`,
-				{
-					name: GMAIL_SYNC_EVENT,
-					data: {
-						userId: data.userId,
-						accountId: data.accountId,
-						pageToken: nextPageToken,
-						loadedCount: nextLoadedCount,
-					},
-				},
-			);
-		}
-
-		return {
-			loadedCount: nextLoadedCount,
-			maxEmails,
-			completed: !nextPageToken || nextLoadedCount >= maxEmails,
-		};
+export const gmailInitialSyncMail = inngest.createFunction(
+	{
+		id: "sync-gmail-initial-mail",
+		triggers: [{ event: GMAIL_CONNECTED_EVENT }, { event: GMAIL_SYNC_EVENT }],
+	},
+	async ({ event, step }: GmailSyncHandlerContext) => {
+		return runGmailInitialSync(event.data as GmailSyncEventData, step);
 	},
 );

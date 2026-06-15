@@ -1,14 +1,36 @@
 "use client";
 
 import {
+	ArrowUpRight01Icon,
+	Menu02FreeIcons,
 	PanelLeftCloseIcon,
 	PanelLeftOpenIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { format } from "date-fns";
+import { motion } from "framer-motion";
+import { XIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Button } from "@/components/ui/button";
+import { useState } from "react";
+import { Button } from "@/components/ui/button-2";
+import {
+	Sheet,
+	SheetClose,
+	SheetContent,
+	SheetHeader,
+	SheetTitle,
+	SheetTrigger,
+} from "@/components/ui/sheet";
 import { useSidebar } from "@/components/ui/sidebar";
+import { Spinner } from "@/components/ui/spinner";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipProvider,
+	TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { api } from "@/trpc/react";
 import { useNavSlot } from "./navslot-context";
 
 const segmentLabels: Record<string, string> = {
@@ -72,6 +94,15 @@ export function AppNavbar() {
 	const pathname = usePathname();
 	const { navSlot } = useNavSlot();
 	const isConversationRoute = /^\/space\/[^/]+$/.test(pathname);
+	const isSpaceRoute = pathname.startsWith("/space");
+	const [sheetOpen, setSheetOpen] = useState(false);
+
+	const { data: conversations, isLoading } = api.chat.history.useQuery(
+		undefined,
+		{
+			enabled: isSpaceRoute,
+		},
+	);
 
 	return (
 		<header className="sticky top-0 z-10 flex h-12 shrink-0 items-center gap-3 border-b bg-sidebar px-2">
@@ -87,7 +118,7 @@ export function AppNavbar() {
 					icon={open ? PanelLeftOpenIcon : PanelLeftCloseIcon}
 				/>
 			</Button>
-			<div className="h-4 w-px bg-border" />
+			{!isConversationRoute && <div className="h-4 w-px bg-border" />}
 			{isConversationRoute ? (
 				<div className="pointer-events-none absolute left-1/2 w-full max-w-[50%] -translate-x-1/2 text-center">
 					{navSlot ?? (
@@ -107,6 +138,78 @@ export function AppNavbar() {
 						{navSlot}
 					</div>
 				</>
+			)}
+
+			<div className="flex-1" />
+
+			{isSpaceRoute && (
+				<Sheet onOpenChange={setSheetOpen} open={sheetOpen}>
+					<TooltipProvider delayDuration={300}>
+						<Tooltip>
+							<TooltipTrigger asChild>
+								<SheetTrigger asChild>
+									<Button size="icon" variant="ghost">
+										<HugeiconsIcon icon={Menu02FreeIcons} />
+									</Button>
+								</SheetTrigger>
+							</TooltipTrigger>
+							<TooltipContent align="end" side="bottom">
+								Previous conversations
+							</TooltipContent>
+						</Tooltip>
+					</TooltipProvider>
+					<SheetContent className="w-70 px-0 sm:w-85" showCloseButton={false}>
+						<SheetHeader className="flex flex-row items-center justify-between space-y-0 border-b px-5 py-4">
+							<SheetTitle className="mt-1 font-copper-bt-regular text-lg leading-none">
+								Your previous conversations
+							</SheetTitle>
+							<SheetClose asChild>
+								<Button size="icon-sm" variant="ghost">
+									<XIcon className="size-4" />
+									<span className="sr-only">Close</span>
+								</Button>
+							</SheetClose>
+						</SheetHeader>
+						<div className="flex flex-col gap-1 overflow-y-auto px-5">
+							{isLoading ? (
+								<p className="flex h-full w-full items-center justify-center">
+									<Spinner />
+								</p>
+							) : conversations?.length === 0 ? (
+								<p className="text-muted-foreground text-sm">
+									No previous conversations.
+								</p>
+							) : (
+								conversations?.map((conversation) => (
+									<Link
+										className="group block py-1.5"
+										href={`/space/${conversation.id}`}
+										key={conversation.id}
+										onClick={() => setSheetOpen(false)}
+									>
+										<motion.div
+											className="flex items-center justify-between gap-2"
+											transition={{
+												type: "spring",
+												stiffness: 400,
+												damping: 25,
+											}}
+											whileHover={{ x: 4 }}
+										>
+											<span className="truncate font-geist-mono font-semibold text-muted-foreground text-xs uppercase transition-colors group-hover:text-foreground">
+												{conversation.title || "New conversation"}
+											</span>
+											<HugeiconsIcon
+												className="size-3.5 shrink-0 text-foreground opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+												icon={ArrowUpRight01Icon}
+											/>
+										</motion.div>
+									</Link>
+								))
+							)}
+						</div>
+					</SheetContent>
+				</Sheet>
 			)}
 		</header>
 	);

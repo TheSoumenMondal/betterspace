@@ -1,14 +1,16 @@
 "use client";
 
+import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import AgentAvatar from "@/components/icons/agent-avatar";
 import { AudioWave01Icon } from "@/components/icons/audio-wave-01-icon";
 import { SendIcon } from "@/components/icons/send-icon";
-import { Button } from "@/components/ui/button-2";
+import { Button, buttonVariants } from "@/components/ui/button-2";
 import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
 import { NavSlot } from "../sidebar/navslot-context";
-import { useAgentsChat } from "./use-agents-chat";
+import { type Message, useAgentsChat } from "./use-agents-chat";
 
 function formatToolName(toolName: string) {
 	return toolName
@@ -22,6 +24,28 @@ export function ChatInterface({ conversationId }: { conversationId?: string }) {
 		useAgentsChat(conversationId);
 	const isConversation = Boolean(conversationId);
 	const bottomRef = useRef<HTMLDivElement>(null);
+
+	const getMessageStatus = (m: Message): string | null => {
+		if (m.toolInvocations?.length) {
+			const latest = m.toolInvocations[m.toolInvocations.length - 1];
+			if (!latest) return null;
+			if (latest.state === "result") {
+				return `Finished ${formatToolName(latest.toolName)}`;
+			} else {
+				return `Running ${formatToolName(latest.toolName)}`;
+			}
+		}
+
+		if (m.routedAgent && m.routedAgent !== "Betterspace Router") {
+			return `Handled by ${m.routedAgent}`;
+		}
+
+		if (m.activity) {
+			return m.activity;
+		}
+
+		return null;
+	};
 
 	useEffect(() => {
 		bottomRef.current?.scrollIntoView({ block: "end", behavior: "smooth" });
@@ -37,7 +61,7 @@ export function ChatInterface({ conversationId }: { conversationId?: string }) {
 		>
 			{conversationId && (
 				<NavSlot>
-					<span className="block truncate font-medium text-foreground text-sm">
+					<span className="block truncate font-geist-mono font-semibold text-foreground text-xs uppercase">
 						{title ?? "Conversation"}
 					</span>
 				</NavSlot>
@@ -47,83 +71,86 @@ export function ChatInterface({ conversationId }: { conversationId?: string }) {
 				<div
 					className={
 						isConversation
-							? "scrollbar-thin min-h-0 flex-1 overflow-y-auto px-4 py-8"
-							: "scrollbar-thin max-h-[60vh] flex-1 overflow-y-auto px-4 pb-4"
+							? "scrollbar-none min-h-0 flex-1 overflow-y-auto px-4 pt-8"
+							: "scrollbar-none max-h-[60vh] flex-1 overflow-y-auto px-4"
 					}
 				>
-					<div className="mx-auto w-full max-w-4xl space-y-6">
+					<div className="mx-auto flex w-full max-w-4xl flex-col gap-6">
 						{messages.map((m, index) => {
-							const latestToolInvocation =
-								m.toolInvocations?.[(m.toolInvocations?.length ?? 0) - 1];
 							const isActiveAssistant =
 								isLoading && index === messages.length - 1;
 
 							if (m.role === "user") {
 								return (
 									<div className="flex justify-end" key={m.id}>
-										<div className="max-w-[80%] rounded-2xl bg-zinc-800 px-4 py-3 text-white">
+										<div
+											className={cn(
+												buttonVariants({ variant: "info", animation: "none" }),
+												"h-auto max-w-[80%] cursor-default whitespace-normal text-wrap rounded-xl px-3 py-2 text-left font-geist-sans text-sm hover:brightness-100 active:brightness-100",
+											)}
+										>
 											{m.content}
 										</div>
 									</div>
 								);
 							}
 
-							// Assistant Message
+							const currentStatus = getMessageStatus(m);
+
 							return (
 								<div className="flex gap-4 text-left" key={m.id}>
 									<div className="mt-1 shrink-0">
 										<AgentAvatar
-											animated={isActiveAssistant || Boolean(m.activity)}
+											animated={true}
 											className={
 												isActiveAssistant
 													? "shadow-[0_0_18px_rgba(236,72,153,0.35)]"
 													: undefined
 											}
 											seed="betterspace-agent"
-											size={32}
+											size={24}
 										/>
 									</div>
-									<div className="flex-1 space-y-3 pt-1">
-										{m.activity && (
-											<p className="animate-pulse text-muted-foreground text-xs">
-												{m.activity}
-											</p>
-										)}
-
-										{m.routedAgent &&
-											m.routedAgent !== "Betterspace Router" && (
-												<p className="text-muted-foreground text-xs">
-													Handled by {m.routedAgent}
-												</p>
+									<div className="flex-1 flex-col">
+										<AnimatePresence>
+											{currentStatus && (
+												<motion.div
+													animate={{
+														opacity: 1,
+														height: m.content ? "auto" : 24,
+														marginBottom: m.content ? 8 : 0,
+														marginTop: m.content ? 0 : 4,
+													}}
+													className="flex items-center overflow-hidden text-muted-foreground text-xs"
+													exit={{
+														opacity: 0,
+														height: 0,
+														marginBottom: 0,
+														marginTop: 0,
+													}}
+													initial={{
+														opacity: 0,
+														height: 0,
+														marginBottom: 0,
+														marginTop: 0,
+													}}
+													key={currentStatus}
+													transition={{ duration: 0.2 }}
+												>
+													<motion.span
+														animate={{ y: 0 }}
+														exit={{ y: -5 }}
+														initial={{ y: 5 }}
+														transition={{ duration: 0.2 }}
+													>
+														{currentStatus}
+													</motion.span>
+												</motion.div>
 											)}
+										</AnimatePresence>
 
-										{/* Tool Invocations */}
-										{latestToolInvocation && (
-											<div
-												className={`flex w-fit items-center gap-2 rounded-lg border px-3 py-1.5 text-sm transition-all ${
-													latestToolInvocation.state === "result"
-														? "border-zinc-200 bg-zinc-50 text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-400"
-														: "animate-pulse border-zinc-200 bg-white text-zinc-800 shadow-sm dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-200"
-												}`}
-												key={`${latestToolInvocation.toolCallId}-${latestToolInvocation.state}`}
-											>
-												{latestToolInvocation.state === "result" ? (
-													<span className="text-emerald-500">✓</span>
-												) : (
-													<span className="size-3 animate-spin rounded-full border border-current border-t-transparent" />
-												)}
-												<span>
-													{latestToolInvocation.state === "result"
-														? "Finished"
-														: "Running"}{" "}
-													{formatToolName(latestToolInvocation.toolName)}
-												</span>
-											</div>
-										)}
-
-										{/* Text content */}
 										{m.content && (
-											<div className="text-zinc-900 leading-relaxed dark:text-zinc-100 [&_a]:text-blue-500 [&_a]:underline [&_blockquote]:my-3 [&_blockquote]:border-border [&_blockquote]:border-l-2 [&_blockquote]:pl-4 [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-sm [&_h1]:mt-5 [&_h1]:mb-2 [&_h1]:font-semibold [&_h1]:text-2xl [&_h2]:mt-4 [&_h2]:mb-2 [&_h2]:font-semibold [&_h2]:text-xl [&_h3]:mt-3 [&_h3]:mb-2 [&_h3]:font-semibold [&_li]:ml-5 [&_ol]:my-3 [&_ol]:list-decimal [&_p:last-child]:mb-0 [&_p]:mb-3 [&_pre]:my-3 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-muted [&_pre]:p-4 [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_strong]:font-semibold [&_ul]:my-3 [&_ul]:list-disc">
+											<div className="max-w-fit rounded-2xl border border-dashed bg-accent/50 px-3 py-3 text-sm [&_a]:text-blue-500 [&_a]:underline [&_blockquote]:my-3 [&_blockquote]:border-border [&_blockquote]:border-l-2 [&_blockquote]:pl-4 [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-sm [&_h1]:mt-5 [&_h1]:mb-2 [&_h1]:font-semibold [&_h1]:text-2xl [&_h2]:mt-4 [&_h2]:mb-2 [&_h2]:font-semibold [&_h2]:text-xl [&_h3]:mt-3 [&_h3]:mb-2 [&_h3]:font-semibold [&_li]:ml-5 [&_ol]:my-3 [&_ol]:list-decimal [&_p:last-child]:mb-0 [&_p]:mb-3 [&_pre]:my-3 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-muted [&_pre]:p-4 [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_strong]:font-semibold [&_ul]:my-3 [&_ul]:list-disc">
 												<ReactMarkdown>{m.content}</ReactMarkdown>
 											</div>
 										)}
@@ -131,13 +158,12 @@ export function ChatInterface({ conversationId }: { conversationId?: string }) {
 								</div>
 							);
 						})}
-						<div ref={bottomRef} />
 					</div>
+					<div className="h-4 shrink-0" ref={bottomRef} />
 				</div>
 			)}
 
-			{/* Input Area */}
-			<div className={isConversation ? "shrink-0 px-4 pt-2 pb-3" : ""}>
+			<div className={isConversation ? "shrink-0 px-4 pb-3" : ""}>
 				<form
 					className="relative mx-auto w-full max-w-4xl"
 					onSubmit={handleSubmit}
@@ -174,11 +200,6 @@ export function ChatInterface({ conversationId }: { conversationId?: string }) {
 							Press Enter to send your message
 						</p>
 					</div>
-				)}
-				{isConversation && (
-					<p className="mt-1 text-center text-muted-foreground text-xs">
-						Press Enter to send, Shift + Enter for a new line
-					</p>
 				)}
 			</div>
 		</div>

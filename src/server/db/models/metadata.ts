@@ -1,6 +1,8 @@
 import {
 	boolean,
 	index,
+	integer,
+	jsonb,
 	pgEnum,
 	pgTable,
 	text,
@@ -35,10 +37,17 @@ export const emailAiMetadata = pgTable("email_ai_metadata", {
 	fromAddress: text("from_address"),
 
 	summary: text("summary").notNull(),
-	actionItems: text("action_items"),
-	entities: text("entities"),
+	actionItems: jsonb("action_items").$type<string[]>(),
+	entities: jsonb("entities").$type<{
+		persons: string[];
+		organizations: string[];
+		locations: string[];
+		dates: string[];
+		amounts: string[];
+	}>(),
 
 	importance: importanceEnum("importance").default("medium").notNull(),
+	priorityScore: integer("priority_score").notNull().default(50),
 	category: text("category"),
 
 	hasMeetingSignal: boolean("has_meeting_signal").default(false).notNull(),

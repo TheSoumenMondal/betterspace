@@ -315,17 +315,27 @@ export const calendarInitialSync = inngest.createFunction(
 		const page = await step.run(
 			`list-calendar-events-${data.accountId}-${safeCalId}-${loadedCount}`,
 			async () => {
-				return calendarClient.googlecalendar.api.events.getMany({
-					calendarId: activeCalendarId,
-					timeMin: rangeStart.toISOString(),
-					timeMax: rangeEnd.toISOString(),
-					singleEvents: true,
-					orderBy: "startTime",
-					maxResults: batchSize,
-					pageToken: data.pageToken ?? undefined,
-					showDeleted: false,
-					showHiddenInvitations: true,
-				});
+				try {
+					return await calendarClient.googlecalendar.api.events.getMany({
+						calendarId: activeCalendarId,
+						timeMin: rangeStart.toISOString(),
+						timeMax: rangeEnd.toISOString(),
+						singleEvents: true,
+						orderBy: "startTime",
+						maxResults: batchSize,
+						pageToken: data.pageToken ?? undefined,
+						showDeleted: false,
+						showHiddenInvitations: true,
+					});
+				} catch (err: any) {
+					if (err?.status === 404 || err?.message?.includes("Not Found")) {
+						console.warn(
+							`[Calendar Sync] Calendar ${activeCalendarId} not found, skipping.`,
+						);
+						return { items: [], nextPageToken: undefined };
+					}
+					throw err;
+				}
 			},
 		);
 

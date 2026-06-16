@@ -2,12 +2,12 @@ import { Buffer } from "node:buffer";
 import { eq } from "drizzle-orm";
 import { corsair } from "@/corsair";
 import { inngest } from "@/inngest/client";
-import { generateSummaryAndEmbeddings } from "@/lib/openai";
+import { ExtraInformationFromEmail } from "@/lib/openai";
 import { PLANS } from "@/lib/plans";
 import { db } from "@/server/db";
 import { emailAiMetadata, emailChunks, user } from "@/server/db/schema";
 
-const INITIAL_BATCH_SIZE = 30;
+const INITIAL_BATCH_SIZE = 10;
 const GMAIL_SYNC_EVENT = "sync/gmail.initial-sync.requested";
 const GMAIL_CONNECTED_EVENT = "sync/gmail.connected";
 
@@ -125,38 +125,6 @@ function hasAttachment(part?: GmailMessagePart): boolean {
 	return (part.parts ?? []).some((child) => hasAttachment(child));
 }
 
-function detectSignals(content: string) {
-	const lowered = content.toLowerCase();
-	const hasMeetingSignal =
-		/\b(meeting|calendar invite|zoom|teams|google meet|call)\b/.test(lowered);
-	const hasDeadline =
-		/\b(deadline|due\s+(?:by|on)|asap|end of day|eod|tomorrow|today)\b/.test(
-			lowered,
-		);
-	const hasInvoice =
-		/\b(invoice|bill|payment|receipt|subscription renewal)\b/.test(lowered);
-
-	let importance: "low" | "medium" | "high" = "medium";
-	if (
-		hasDeadline ||
-		hasInvoice ||
-		/\b(urgent|immediately|action required|priority)\b/.test(lowered)
-	) {
-		importance = "high";
-	} else if (
-		/\b(fyi|for your information|newsletter|promotion)\b/.test(lowered)
-	) {
-		importance = "low";
-	}
-
-	return {
-		hasMeetingSignal,
-		hasDeadline,
-		hasInvoice,
-		importance,
-	};
-}
-
 function buildAnalysisText(message: GmailMessage) {
 	const subject = getHeaderValue(message.payload, "Subject");
 	const fromAddress = getHeaderValue(message.payload, "From");
@@ -179,12 +147,27 @@ function buildAnalysisText(message: GmailMessage) {
 function buildMessageChunks(input: {
 	summary: string;
 	bodyText: string;
+	actionItems: string[];
+	entities: {
+		persons: string[];
+		organizations: string[];
+		locations: string[];
+		dates: string[];
+		amounts: string[];
+	} | null;
 	embedding: number[];
 	emailId: string;
 	accountId: string;
 	emailDate: Date;
 }) {
-	return [
+	const chunks: {
+		emailId: string;
+		accountId: string;
+		chunkType: "summary" | "body" | "action_items" | "entities";
+		content: string;
+		embedding: number[];
+		emailDate: Date;
+	}[] = [
 		{
 			emailId: input.emailId,
 			accountId: input.accountId,
@@ -202,6 +185,39 @@ function buildMessageChunks(input: {
 			emailDate: input.emailDate,
 		},
 	];
+
+	if (input.actionItems && input.actionItems.length > 0) {
+		chunks.push({
+			emailId: input.emailId,
+			accountId: input.accountId,
+			chunkType: "action_items" as const,
+			content: input.actionItems.join("\n"),
+			embedding: input.embedding,
+			emailDate: input.emailDate,
+		});
+	}
+
+	if (input.entities) {
+		const entitiesText = Object.entries(input.entities)
+			.map(([key, values]) =>
+				values.length > 0 ? `${key}: ${values.join(", ")}` : "",
+			)
+			.filter(Boolean)
+			.join("\n");
+
+		if (entitiesText) {
+			chunks.push({
+				emailId: input.emailId,
+				accountId: input.accountId,
+				chunkType: "entities" as const,
+				content: entitiesText,
+				embedding: input.embedding,
+				emailDate: input.emailDate,
+			});
+		}
+	}
+
+	return chunks;
 }
 
 type GmailSyncStep = {
@@ -292,14 +308,25 @@ export async function runGmailInitialSync(
 		await step.run(
 			`sync-gmail-message-${data.accountId}-${messageId}`,
 			async () => {
-				const fullMessage = (await gmailClient.gmail.api.messages.get({
-					id: messageId,
-					format: "full",
-				})) as GmailMessage;
+				let fullMessage: GmailMessage;
+				try {
+					fullMessage = (await gmailClient.gmail.api.messages.get({
+						id: messageId,
+						format: "full",
+					})) as GmailMessage;
+				} catch (err: any) {
+					if (err?.status === 404 || err?.message?.includes("Not Found")) {
+						console.warn(
+							`[Gmail Sync] Message ${messageId} not found, skipping.`,
+						);
+						return;
+					}
+					throw err;
+				}
 
 				const text = buildAnalysisText(fullMessage);
 				const [analysis, bodyText] = await Promise.all([
-					generateSummaryAndEmbeddings(text),
+					ExtraInformationFromEmail(text),
 					Promise.resolve(
 						normalizeWhitespace(
 							collectTextParts(fullMessage.payload).join("\n") ||
@@ -312,7 +339,6 @@ export async function runGmailInitialSync(
 				const subject = getHeaderValue(fullMessage.payload, "Subject");
 				const fromAddress = getHeaderValue(fullMessage.payload, "From");
 				const emailDate = toDate(fullMessage.internalDate);
-				const signals = detectSignals(`${text}\n${analysis.summary}`);
 				const embedding =
 					analysis.embedding.length > 0
 						? analysis.embedding
@@ -331,15 +357,18 @@ export async function runGmailInitialSync(
 							threadId: fullMessage.threadId ?? null,
 							subject: subject || null,
 							fromAddress: fromAddress || null,
-							summary: analysis.summary,
-							actionItems: null,
-							entities: null,
-							importance: signals.importance,
-							category: null,
-							hasMeetingSignal: signals.hasMeetingSignal,
-							hasDeadline: signals.hasDeadline,
-							hasInvoice: signals.hasInvoice,
-							hasAttachment: hasAttachment(fullMessage.payload),
+							summary: analysis.information.summary,
+							actionItems: analysis.information.actionItems || null,
+							entities: analysis.information.entities || null,
+							importance: analysis.information.importance || "medium",
+							priorityScore: analysis.information.priorityScore || 50,
+							category: analysis.information.category || null,
+							hasMeetingSignal: analysis.information.hasMeetingSignal ?? false,
+							hasDeadline: analysis.information.hasDeadline ?? false,
+							hasInvoice: analysis.information.hasInvoice ?? false,
+							hasAttachment:
+								analysis.information.hasAttachment ??
+								hasAttachment(fullMessage.payload),
 							emailDate,
 						})
 						.onConflictDoUpdate({
@@ -349,23 +378,29 @@ export async function runGmailInitialSync(
 								threadId: fullMessage.threadId ?? null,
 								subject: subject || null,
 								fromAddress: fromAddress || null,
-								summary: analysis.summary,
-								actionItems: null,
-								entities: null,
-								importance: signals.importance,
-								category: null,
-								hasMeetingSignal: signals.hasMeetingSignal,
-								hasDeadline: signals.hasDeadline,
-								hasInvoice: signals.hasInvoice,
-								hasAttachment: hasAttachment(fullMessage.payload),
+								summary: analysis.information.summary,
+								actionItems: analysis.information.actionItems || null,
+								entities: analysis.information.entities || null,
+								importance: analysis.information.importance || "medium",
+								priorityScore: analysis.information.priorityScore || 50,
+								category: analysis.information.category || null,
+								hasMeetingSignal:
+									analysis.information.hasMeetingSignal ?? false,
+								hasDeadline: analysis.information.hasDeadline ?? false,
+								hasInvoice: analysis.information.hasInvoice ?? false,
+								hasAttachment:
+									analysis.information.hasAttachment ??
+									hasAttachment(fullMessage.payload),
 								emailDate,
 							},
 						});
 
 					await tx.insert(emailChunks).values(
 						buildMessageChunks({
-							summary: analysis.summary,
+							summary: analysis.information.summary,
 							bodyText,
+							actionItems: analysis.information.actionItems,
+							entities: analysis.information.entities,
 							embedding,
 							emailId: messageId,
 							accountId: data.accountId,

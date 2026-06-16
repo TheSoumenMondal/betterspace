@@ -15,6 +15,8 @@ import {
 	getAllMailsOutput,
 	searchMailsInput,
 	searchMailsOutput,
+	sendMailInput,
+	sendMailOutput,
 } from "./model";
 
 const tags = ["gmail"];
@@ -55,6 +57,52 @@ export const gmailRoute = createTRPCRouter({
 				messageId: result.message?.id ?? "",
 				threadId: result.message?.threadId ?? "",
 				createdAt: new Date().toISOString(),
+			};
+		}),
+
+	/**
+	 * Send an email immediately via Gmail.
+	 *
+	 * This is the UI compose-form path. It builds the RFC 2822 raw message
+	 * server-side (correct base64url via buildGmailRawMessage) and calls
+	 * corsair.gmail.api.messages.send directly — the same strategy as the
+	 * agent's send_email_fallback tool.
+	 *
+	 * The MCP / agent path (run_script) is the primary path inside the chat
+	 * agent. This mutation exists for the compose UI and as a reliable
+	 * fallback reference.
+	 */
+	sendMail: protectedProcedure
+		.meta({
+			path: "gmail-sendMail",
+			tags,
+			protectedProcedure: true,
+		})
+		.input(sendMailInput)
+		.output(sendMailOutput)
+		.mutation(async ({ ctx, input }) => {
+			const { sender, to, cc, bcc, subject, body, isHtml, threadId } = input;
+			const raw = buildGmailRawMessage({
+				from: sender,
+				to,
+				cc,
+				bcc,
+				subject,
+				body,
+				isHtml: isHtml ?? false,
+				threadId,
+			});
+
+			const gmailClient = corsair.withTenant(ctx.session.user.id);
+			const result = await gmailClient.gmail.api.messages.send({
+				userId: "me",
+				raw,
+				...(threadId ? { threadId } : {}),
+			});
+
+			return {
+				messageId: result.id ?? "",
+				threadId: result.threadId ?? "",
 			};
 		}),
 	getAllMails: protectedProcedure

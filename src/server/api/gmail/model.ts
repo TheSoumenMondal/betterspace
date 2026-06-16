@@ -61,3 +61,31 @@ export const searchMailsOutput = z.object({
 	items: z.array(z.any()),
 	nextCursor: z.string().nullable(),
 });
+
+export const sendMailInput = z.object({
+	sender: z.string().describe("The email address of the sender"),
+	to: z.array(z.string()).describe("An array of recipient email addresses"),
+	cc: z.array(z.string()).describe("An array of CC email addresses").optional(),
+	bcc: z
+		.array(z.string())
+		.describe("An array of BCC email addresses")
+		.optional(),
+	subject: z.string().describe("The subject of the email"),
+	body: z
+		.string()
+		.describe("The body content of the email (plain text or HTML)"),
+	isHtml: z
+		.boolean()
+		.optional()
+		.default(false)
+		.describe("Whether the body contains HTML markup"),
+	threadId: z
+		.string()
+		.optional()
+		.describe("Gmail thread ID — set only when replying to an existing thread"),
+});
+
+export const sendMailOutput = z.object({
+	messageId: z.string().describe("The Gmail message ID of the sent email"),
+	threadId: z.string().describe("The Gmail thread ID of the sent email"),
+});

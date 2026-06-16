@@ -164,35 +164,61 @@ export function ChatInterface({ conversationId }: { conversationId?: string }) {
 			)}
 
 			<div className={isConversation ? "shrink-0 px-4 pb-3" : ""}>
-				<form
-					className="relative mx-auto w-full max-w-4xl"
-					onSubmit={handleSubmit}
-				>
-					<Textarea
-						className={
-							isConversation
-								? "h-20 min-h-20 w-full resize-none rounded-xl p-4"
-								: "h-30 w-full resize-none rounded-xl p-4"
-						}
-						onChange={handleInputChange}
-						onKeyDown={(e) => {
-							if (e.key === "Enter" && !e.shiftKey) {
-								e.preventDefault();
-								handleSubmit();
-							}
-						}}
-						placeholder="Check my meetings for today, or draft an email..."
-						value={input}
-					/>
-					<div className="absolute right-2 bottom-2 flex gap-2">
-						<Button type="button" variant="muted">
-							<AudioWave01Icon />
-						</Button>
-						<Button type="submit" variant="muted">
-							<SendIcon />
-						</Button>
+				{isConversation ? (
+					<div className="relative mx-auto w-full max-w-4xl">
+						<form className="relative w-full" onSubmit={handleSubmit}>
+							<Textarea
+								className="h-20 min-h-20 w-full resize-none rounded-xl p-4"
+								onChange={handleInputChange}
+								onKeyDown={(e) => {
+									if (e.key === "Enter" && !e.shiftKey) {
+										e.preventDefault();
+										handleSubmit();
+									}
+								}}
+								placeholder="Check my meetings for today, or draft an email..."
+								value={input}
+							/>
+							<div className="absolute right-2 bottom-2 flex gap-2">
+								<Button type="button" variant="muted">
+									<AudioWave01Icon />
+								</Button>
+								<Button type="submit" variant="muted">
+									<SendIcon />
+								</Button>
+							</div>
+						</form>
 					</div>
-				</form>
+				) : (
+					<div className="relative mx-auto w-full max-w-4xl">
+						<div className="absolute -inset-1 z-0 rounded-[2rem] bg-linear-to-br from-cyan-400 via-fuchsia-500 to-orange-500 opacity-20 blur-2xl" />
+						<form
+							className="relative z-10 w-full rounded-2xl border bg-background shadow-xl"
+							onSubmit={handleSubmit}
+						>
+							<Textarea
+								className="h-30 w-full resize-none rounded-2xl border-none bg-transparent p-4 focus-visible:ring-0 focus-visible:ring-offset-0"
+								onChange={handleInputChange}
+								onKeyDown={(e) => {
+									if (e.key === "Enter" && !e.shiftKey) {
+										e.preventDefault();
+										handleSubmit();
+									}
+								}}
+								placeholder="Check my meetings for today, or draft an email..."
+								value={input}
+							/>
+							<div className="absolute right-2 bottom-2 flex gap-2">
+								<Button type="button" variant="muted">
+									<AudioWave01Icon />
+								</Button>
+								<Button type="submit" variant="muted">
+									<SendIcon />
+								</Button>
+							</div>
+						</form>
+					</div>
+				)}
 
 				{!isConversation && (
 					<div className="mt-4 flex justify-center">

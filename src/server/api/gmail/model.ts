@@ -50,3 +50,14 @@ export const getAllMailsOutput = z.object({
 	items: z.array(z.any()),
 	nextCursor: z.number().nullable(),
 });
+
+export const searchMailsInput = z.object({
+	query: z.string(),
+	limit: z.number().min(1).max(100).default(20),
+	cursor: z.string().nullish(), // page token
+});
+
+export const searchMailsOutput = z.object({
+	items: z.array(z.any()),
+	nextCursor: z.string().nullable(),
+});

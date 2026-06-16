@@ -13,6 +13,8 @@ import {
 	createDraftMailOutput,
 	getAllMailsInput,
 	getAllMailsOutput,
+	searchMailsInput,
+	searchMailsOutput,
 } from "./model";
 
 const tags = ["gmail"];
@@ -264,6 +266,47 @@ export const gmailRoute = createTRPCRouter({
 					aiMetadata: m.aiMetadata,
 				})),
 				nextCursor,
+			};
+		}),
+
+	searchMails: protectedProcedure
+		.input(searchMailsInput)
+		.output(searchMailsOutput)
+		.query(async ({ ctx, input }) => {
+			const { query, limit, cursor } = input;
+
+			const gmailClient = corsair.withTenant(ctx.session.user.id);
+
+			const response = await gmailClient.gmail.api.messages.list({
+				userId: "me",
+				q: query,
+				maxResults: limit,
+				pageToken: cursor ?? undefined,
+			});
+
+			if (!response.messages || response.messages.length === 0) {
+				return { items: [], nextCursor: null };
+			}
+
+			const messageDetails = await Promise.all(
+				response.messages.map(async (msg) => {
+					try {
+						return await gmailClient.gmail.api.messages.get({
+							userId: "me",
+							id: msg.id as string,
+							format: "full",
+						});
+					} catch (_err) {
+						return null;
+					}
+				}),
+			);
+
+			const validMessages = messageDetails.filter((m) => m !== null);
+
+			return {
+				items: validMessages,
+				nextCursor: response.nextPageToken ?? null,
 			};
 		}),
 });

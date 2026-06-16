@@ -327,8 +327,9 @@ export const calendarInitialSync = inngest.createFunction(
 						showDeleted: false,
 						showHiddenInvitations: true,
 					});
-				} catch (err: any) {
-					if (err?.status === 404 || err?.message?.includes("Not Found")) {
+				} catch (err) {
+					const e = err as { status?: number; message?: string };
+					if (e?.status === 404 || e?.message?.includes("Not Found")) {
 						console.warn(
 							`[Calendar Sync] Calendar ${activeCalendarId} not found, skipping.`,
 						);

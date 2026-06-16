@@ -38,6 +38,12 @@ export const getAllMailsInput = z.object({
 	limit: z.number().min(1).max(100).default(20),
 	cursor: z.number().nullish(), // offset
 	labelId: z.string().optional(),
+	sort: z.enum(["newest", "oldest", "priorityDesc", "priorityAsc"]).optional(),
+	importance: z.array(z.enum(["low", "medium", "high"])).optional(),
+	hasMeetingSignal: z.boolean().optional(),
+	hasDeadline: z.boolean().optional(),
+	hasInvoice: z.boolean().optional(),
+	hasAttachment: z.boolean().optional(),
 });
 
 export const getAllMailsOutput = z.object({

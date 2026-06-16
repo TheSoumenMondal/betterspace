@@ -192,7 +192,7 @@ export async function ExtraInformationFromEmail(text: string) {
 		parsedInformation = JSON.parse(
 			information.choices[0]?.message.content as string,
 		) as GeneratedEmailInformation;
-	} catch (e) {
+	} catch (_e) {
 		console.error(
 			"Failed to parse JSON from AI response",
 			information.choices[0]?.message.content,

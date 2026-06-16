@@ -3,6 +3,8 @@
 import {
 	Archive03Icon,
 	ArrowLeft02Icon,
+	FilterIcon,
+	FilterMailIcon,
 	SearchIcon,
 	StarIcon,
 	Trash,
@@ -16,11 +18,19 @@ import removeMarkdown from "remove-markdown";
 import { ReplySheet } from "@/components/features/inbox/reply-sheet";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button-2";
+import { Checkbox } from "@/components/ui/checkbox";
+
 import {
 	InputGroup,
 	InputGroupAddon,
 	InputGroupInput,
 } from "@/components/ui/input-group";
+import { Label } from "@/components/ui/label";
+import {
+	Popover,
+	PopoverContent,
+	PopoverTrigger,
+} from "@/components/ui/popover";
 import {
 	ResizableHandle,
 	ResizablePanel,
@@ -98,6 +108,16 @@ function getEmailBody(payload: MessagePart | undefined): {
 
 export function MailLayout({ labelId = "INBOX" }: { labelId?: string }) {
 	const [filter, setFilter] = useState<"all" | "read" | "unread">("all");
+	const [sortOrder, setSortOrder] = useState<
+		"newest" | "oldest" | "priorityDesc" | "priorityAsc"
+	>("newest");
+	const [selectedImportances, setSelectedImportances] = useState<
+		("low" | "medium" | "high")[]
+	>([]);
+	const [hasMeetingSignal, setHasMeetingSignal] = useState(false);
+	const [hasDeadline, setHasDeadline] = useState(false);
+	const [hasInvoice, setHasInvoice] = useState(false);
+	const [hasAttachment, setHasAttachment] = useState(false);
 	const { ref: mobileRef, inView: mobileInView } = useInView({
 		rootMargin: "400px",
 	});
@@ -114,7 +134,17 @@ export function MailLayout({ labelId = "INBOX" }: { labelId?: string }) {
 		hasNextPage,
 		isFetchingNextPage,
 	} = api.gmail.getAllMails.useInfiniteQuery(
-		{ limit: 20, labelId },
+		{
+			limit: 20,
+			labelId,
+			sort: sortOrder,
+			importance:
+				selectedImportances.length > 0 ? selectedImportances : undefined,
+			hasMeetingSignal: hasMeetingSignal || undefined,
+			hasDeadline: hasDeadline || undefined,
+			hasInvoice: hasInvoice || undefined,
+			hasAttachment: hasAttachment || undefined,
+		},
 		{
 			getNextPageParam: (lastPage) => lastPage.nextCursor,
 			initialCursor: null as number | null,
@@ -247,7 +277,7 @@ export function MailLayout({ labelId = "INBOX" }: { labelId?: string }) {
 	const renderLeftPanel = (observerRef: (node?: Element | null) => void) => (
 		<div className="flex h-full min-h-0 min-w-[320px] flex-col gap-2 overflow-hidden p-2">
 			{labelId === "INBOX" && (
-				<div className="flex w-full items-center justify-end">
+				<div className="flex w-full items-center justify-end gap-2">
 					<Tabs
 						className="w-auto"
 						defaultValue="read"
@@ -266,6 +296,157 @@ export function MailLayout({ labelId = "INBOX" }: { labelId?: string }) {
 							</TabsTrigger>
 						</TabsList>
 					</Tabs>
+					<Popover>
+						<PopoverTrigger asChild>
+							<Button className="h-8" size="sm" variant="outline">
+								<HugeiconsIcon className="mr-2 size-3" icon={FilterIcon} />
+								Filters
+							</Button>
+						</PopoverTrigger>
+						<PopoverContent align="end" className="w-64 p-4 font-sans text-sm">
+							<div className="flex flex-col gap-4">
+								<div className="space-y-2">
+									<h4 className="font-medium leading-none">Sort By</h4>
+									<div className="flex items-center gap-2">
+										<Button
+											className="h-7 text-xs"
+											onClick={() => setSortOrder("newest")}
+											size="sm"
+											variant={sortOrder === "newest" ? "info" : "outline"}
+										>
+											Newest
+										</Button>
+										<Button
+											className="h-7 text-xs"
+											onClick={() => setSortOrder("oldest")}
+											size="sm"
+											variant={sortOrder === "oldest" ? "info" : "outline"}
+										>
+											Oldest
+										</Button>
+									</div>
+								</div>
+								<div className="space-y-2">
+									<div className="flex items-center justify-between">
+										<h4 className="font-medium leading-none">Priority</h4>
+										<Button
+											className="h-6 w-6"
+											onClick={() => {
+												if (sortOrder === "priorityDesc")
+													setSortOrder("priorityAsc");
+												else if (sortOrder === "priorityAsc")
+													setSortOrder("newest");
+												else setSortOrder("priorityDesc");
+											}}
+											size="icon"
+											variant="ghost"
+										>
+											<HugeiconsIcon
+												className={cn(
+													"size-3 transition-transform duration-200",
+													sortOrder === "priorityAsc" && "rotate-180",
+													sortOrder !== "priorityDesc" &&
+														sortOrder !== "priorityAsc" &&
+														"text-muted-foreground opacity-50",
+												)}
+												icon={FilterMailIcon}
+											/>
+										</Button>
+									</div>
+									<div className="flex items-center gap-2">
+										{(["high", "medium", "low"] as const).map((imp) => {
+											const active = selectedImportances.includes(imp);
+											return (
+												<Button
+													className="h-7 text-xs capitalize"
+													key={imp}
+													onClick={() => {
+														setSelectedImportances((prev) =>
+															active
+																? prev.filter((i) => i !== imp)
+																: [...prev, imp],
+														);
+													}}
+													size="sm"
+													variant={active ? "info" : "outline"}
+												>
+													{imp}
+												</Button>
+											);
+										})}
+									</div>
+								</div>
+								<div className="space-y-3 border-t pt-2">
+									<div className="flex items-center space-x-2">
+										<Checkbox
+											checked={hasMeetingSignal}
+											id="meeting"
+											onCheckedChange={(c) => setHasMeetingSignal(!!c)}
+										/>
+										<Label
+											className="cursor-pointer font-normal text-xs"
+											htmlFor="meeting"
+										>
+											Meeting Signals
+										</Label>
+									</div>
+									<div className="flex items-center space-x-2">
+										<Checkbox
+											checked={hasDeadline}
+											id="deadline"
+											onCheckedChange={(c) => setHasDeadline(!!c)}
+										/>
+										<Label
+											className="cursor-pointer font-normal text-xs"
+											htmlFor="deadline"
+										>
+											Deadlines
+										</Label>
+									</div>
+									<div className="flex items-center space-x-2">
+										<Checkbox
+											checked={hasInvoice}
+											id="invoice"
+											onCheckedChange={(c) => setHasInvoice(!!c)}
+										/>
+										<Label
+											className="cursor-pointer font-normal text-xs"
+											htmlFor="invoice"
+										>
+											Has Invoice
+										</Label>
+									</div>
+									<div className="flex items-center space-x-2">
+										<Checkbox
+											checked={hasAttachment}
+											id="attachment"
+											onCheckedChange={(c) => setHasAttachment(!!c)}
+										/>
+										<Label
+											className="cursor-pointer font-normal text-xs"
+											htmlFor="attachment"
+										>
+											Has Attachments
+										</Label>
+									</div>
+								</div>
+								<Button
+									className="mt-4 h-8 w-full text-xs"
+									onClick={() => {
+										setSortOrder("newest");
+										setSelectedImportances([]);
+										setHasMeetingSignal(false);
+										setHasDeadline(false);
+										setHasInvoice(false);
+										setHasAttachment(false);
+									}}
+									variant="outline"
+								>
+									Clear Filters
+								</Button>
+							</div>
+						</PopoverContent>
+					</Popover>
 				</div>
 			)}
 			<InputGroup className="mb-2 shrink-0 has-[[data-slot=input-group-control]:focus-visible]:border-input has-[[data-slot=input-group-control]:focus-visible]:ring-0">
@@ -339,6 +520,69 @@ export function MailLayout({ labelId = "INBOX" }: { labelId?: string }) {
 									: l.toLowerCase(),
 							);
 
+						const aiMetadata = message.aiMetadata as
+							| Record<string, unknown>
+							| undefined;
+						const importance = aiMetadata?.importance as string | undefined;
+						const priorityScore = aiMetadata?.priorityScore as
+							| number
+							| undefined;
+						const isMeeting = !!aiMetadata?.hasMeetingSignal;
+						const isDeadline = !!aiMetadata?.hasDeadline;
+						const isInvoice = !!aiMetadata?.hasInvoice;
+						const isAttachment = !!aiMetadata?.hasAttachment;
+
+						const customBadges = [];
+						if (priorityScore !== undefined) {
+							customBadges.push({
+								label: `Score: ${priorityScore}`,
+								color:
+									"border-gray-200 bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700",
+							});
+						}
+
+						if (importance === "high") {
+							customBadges.push({
+								label: "High Priority",
+								color:
+									"border-red-200 bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400 dark:border-red-500/30",
+							});
+						} else if (importance === "medium") {
+							customBadges.push({
+								label: "Medium",
+								color:
+									"border-orange-200 bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-400 dark:border-orange-500/30",
+							});
+						}
+
+						if (isMeeting)
+							customBadges.push({
+								label: "Meeting",
+								color:
+									"border-blue-200 bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400 dark:border-blue-500/30",
+							});
+						if (isDeadline)
+							customBadges.push({
+								label: "Deadline",
+								color:
+									"border-purple-200 bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-400 dark:border-purple-500/30",
+							});
+						if (isInvoice)
+							customBadges.push({
+								label: "Invoice",
+								color:
+									"border-emerald-200 bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400 dark:border-emerald-500/30",
+							});
+						if (isAttachment)
+							customBadges.push({
+								label: "Attachment",
+								color:
+									"border-zinc-200 bg-zinc-100 text-zinc-700 dark:bg-zinc-500/20 dark:text-zinc-400 dark:border-zinc-500/30",
+							});
+
+						const hasAnyBadge =
+							displayLabels.length > 0 || customBadges.length > 0;
+
 						return (
 							<button
 								className={cn(
@@ -368,13 +612,28 @@ export function MailLayout({ labelId = "INBOX" }: { labelId?: string }) {
 								<div className="line-clamp-2 w-full text-left text-muted-foreground text-xs">
 									{snippetText}
 								</div>
-								{labelId === "INBOX" && displayLabels.length > 0 && (
+								{labelId === "INBOX" && hasAnyBadge && (
 									<div className="mt-2 flex flex-wrap items-center gap-2">
+										{customBadges.map((badge) => (
+											<Badge
+												className={cn(
+													"h-4 px-1.5 py-0 font-medium text-[10px] leading-none",
+													badge.color,
+												)}
+												key={badge.label}
+												variant="outline"
+											>
+												{badge.label}
+											</Badge>
+										))}
 										{displayLabels.map((label, idx) => (
 											<Badge
+												className="h-4 px-1.5 py-0 font-medium text-[10px] leading-none"
 												key={label}
 												variant={
-													isActive && idx === 0 ? "default" : "secondary"
+													isActive && customBadges.length === 0 && idx === 0
+														? "default"
+														: "secondary"
 												}
 											>
 												{label}

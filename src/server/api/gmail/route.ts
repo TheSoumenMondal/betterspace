@@ -1,6 +1,11 @@
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, type SQL, sql } from "drizzle-orm";
 import { corsair } from "@/corsair";
-import { corsairAccounts, corsairEntities, user } from "@/server/db/schema";
+import {
+	corsairAccounts,
+	corsairEntities,
+	emailAiMetadata,
+	user,
+} from "@/server/db/schema";
 import { buildGmailRawMessage } from "@/server/gmail/mime";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import {
@@ -54,7 +59,17 @@ export const gmailRoute = createTRPCRouter({
 		.input(getAllMailsInput)
 		.output(getAllMailsOutput)
 		.query(async ({ ctx, input }) => {
-			const { limit, cursor, labelId } = input;
+			const {
+				limit,
+				cursor,
+				labelId,
+				sort,
+				importance,
+				hasMeetingSignal,
+				hasDeadline,
+				hasInvoice,
+				hasAttachment,
+			} = input;
 			const offset = cursor ?? 0;
 
 			const accounts = await ctx.db
@@ -186,19 +201,53 @@ export const gmailRoute = createTRPCRouter({
 				}
 			}
 
+			const conditions = [
+				inArray(corsairEntities.accountId, accountIds),
+				eq(corsairEntities.entityType, "messages"),
+				labelId
+					? sql`${corsairEntities.data}->'labelIds' @> ${JSON.stringify([labelId])}::jsonb`
+					: undefined,
+			];
+
+			if (importance && importance.length > 0) {
+				conditions.push(inArray(emailAiMetadata.importance, importance));
+			}
+			if (hasMeetingSignal) {
+				conditions.push(eq(emailAiMetadata.hasMeetingSignal, true));
+			}
+			if (hasDeadline) {
+				conditions.push(eq(emailAiMetadata.hasDeadline, true));
+			}
+			if (hasInvoice) {
+				conditions.push(eq(emailAiMetadata.hasInvoice, true));
+			}
+			if (hasAttachment) {
+				conditions.push(eq(emailAiMetadata.hasAttachment, true));
+			}
+
+			let orderByClause: SQL<unknown>;
+			if (sort === "priorityDesc") {
+				orderByClause = desc(emailAiMetadata.priorityScore);
+			} else if (sort === "priorityAsc") {
+				orderByClause = asc(emailAiMetadata.priorityScore);
+			} else if (sort === "oldest") {
+				orderByClause = asc(sql`${corsairEntities.data}->>'internalDate'`);
+			} else {
+				orderByClause = desc(sql`${corsairEntities.data}->>'internalDate'`);
+			}
+
 			const query = ctx.db
-				.select()
+				.select({
+					raw: corsairEntities.data,
+					aiMetadata: emailAiMetadata,
+				})
 				.from(corsairEntities)
-				.where(
-					and(
-						inArray(corsairEntities.accountId, accountIds),
-						eq(corsairEntities.entityType, "messages"),
-						labelId
-							? sql`${corsairEntities.data}->'labelIds' @> ${JSON.stringify([labelId])}::jsonb`
-							: undefined,
-					),
+				.leftJoin(
+					emailAiMetadata,
+					eq(corsairEntities.entityId, emailAiMetadata.emailId),
 				)
-				.orderBy(desc(sql`${corsairEntities.data}->>'internalDate'`))
+				.where(and(...conditions))
+				.orderBy(orderByClause)
 				.limit(limit + 1)
 				.offset(offset);
 
@@ -210,7 +259,10 @@ export const gmailRoute = createTRPCRouter({
 			}
 
 			return {
-				items: messages.map((m) => m.data),
+				items: messages.map((m) => ({
+					...(m.raw as Record<string, unknown>),
+					aiMetadata: m.aiMetadata,
+				})),
 				nextCursor,
 			};
 		}),

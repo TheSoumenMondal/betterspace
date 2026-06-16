@@ -1,6 +1,6 @@
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { corsair } from "@/corsair";
-import { corsairAccounts, corsairEntities } from "@/server/db/schema";
+import { corsairAccounts, corsairEntities, user } from "@/server/db/schema";
 import { buildGmailRawMessage } from "@/server/gmail/mime";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import {
@@ -66,6 +66,125 @@ export const gmailRoute = createTRPCRouter({
 				return { items: [], nextCursor: null };
 			}
 			const accountIds = accounts.map((a) => a.id);
+
+			const [currentUser] = await ctx.db
+				.select()
+				.from(user)
+				.where(eq(user.id, ctx.session.user.id));
+
+			const syncLimit = currentUser?.plan === "free" ? 100 : 500;
+
+			if (labelId && labelId !== "INBOX") {
+				const existingCount = await ctx.db
+					.select({ count: sql`count(*)` })
+					.from(corsairEntities)
+					.where(
+						and(
+							inArray(corsairEntities.accountId, accountIds),
+							eq(corsairEntities.entityType, "messages"),
+							sql`${corsairEntities.data}->'labelIds' @> ${JSON.stringify([labelId])}::jsonb`,
+						),
+					);
+
+				const count = Number(existingCount[0]?.count || 0);
+
+				if (count === 0) {
+					const gmailClient = corsair.withTenant(ctx.session.user.id);
+					const response = await gmailClient.gmail.api.messages.list({
+						userId: "me",
+						labelIds: [labelId],
+						maxResults: syncLimit,
+					});
+
+					if (response.messages && response.messages.length > 0) {
+						const accountId = accountIds[0];
+						if (!accountId) {
+							return { items: [], nextCursor: null };
+						}
+
+						const validResponseMessages = response.messages.filter(
+							(m): m is { id: string } => typeof m.id === "string",
+						);
+
+						const rawMessages = await Promise.all(
+							validResponseMessages.map((m) =>
+								gmailClient.gmail.api.messages.get({
+									userId: "me",
+									id: m.id,
+								}),
+							),
+						);
+
+						const validMessages = rawMessages.filter(
+							(m): m is typeof m & { id: string } => typeof m.id === "string",
+						);
+
+						const messages = Array.from(
+							new Map(validMessages.map((m) => [m.id, m])).values(),
+						);
+
+						const fetchedEntityIds = messages.map((m) => m.id);
+						const existingRows = await ctx.db
+							.select({
+								id: corsairEntities.id,
+								entityId: corsairEntities.entityId,
+							})
+							.from(corsairEntities)
+							.where(inArray(corsairEntities.entityId, fetchedEntityIds));
+
+						const existingIdMap = new Map(
+							existingRows.map((r) => [r.entityId, r.id]),
+						);
+
+						const entitiesToInsert: {
+							id: string;
+							accountId: string;
+							entityId: string;
+							entityType: string;
+							version: string;
+							data: unknown;
+						}[] = [];
+
+						const entitiesToUpdate: {
+							id: string;
+							data: unknown;
+						}[] = [];
+
+						for (const msg of messages) {
+							const existingId = existingIdMap.get(msg.id);
+							if (existingId) {
+								entitiesToUpdate.push({
+									id: existingId,
+									data: msg,
+								});
+							} else {
+								entitiesToInsert.push({
+									id: `msg_${msg.id}`,
+									accountId,
+									entityId: msg.id,
+									entityType: "messages",
+									version: "1",
+									data: msg,
+								});
+							}
+						}
+
+						if (entitiesToInsert.length > 0) {
+							await ctx.db
+								.insert(corsairEntities)
+								.values(entitiesToInsert)
+								.onConflictDoNothing();
+						}
+
+						for (const update of entitiesToUpdate) {
+							await ctx.db
+								.update(corsairEntities)
+								.set({ data: update.data })
+								.where(eq(corsairEntities.id, update.id));
+						}
+					}
+				}
+			}
 
 			const query = ctx.db
 				.select()

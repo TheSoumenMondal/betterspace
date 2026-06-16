@@ -17,6 +17,7 @@ const CALENDAR_CONNECTED_EVENT = "sync/calendar.connected";
 type CalendarSyncEventData = {
 	userId: string;
 	accountId: string;
+	calendarId?: string;
 	pageToken?: string | null;
 	loadedCount?: number;
 	rangeStart?: string;
@@ -96,12 +97,14 @@ type CalendarSyncStep = {
 	run<T>(id: string, fn: () => Promise<T>): Promise<T>;
 	sendEvent<T = unknown>(
 		id: string,
-		payload: { name: string; data: CalendarSyncEventData },
+		payload:
+			| { name: string; data: CalendarSyncEventData }
+			| { name: string; data: CalendarSyncEventData }[],
 	): Promise<T>;
 };
 
 type CalendarSyncHandlerContext = {
-	event: { data: CalendarSyncEventData };
+	event: { name: string; data: CalendarSyncEventData };
 	step: CalendarSyncStep;
 };
 
@@ -258,12 +261,62 @@ export const calendarInitialSync = inngest.createFunction(
 			? getCalendarEndDate(plan, rangeStart)
 			: endDate;
 
+		if (event.name === CALENDAR_CONNECTED_EVENT) {
+			const calendarIds = await step.run("get-calendar-list", async () => {
+				const ids: string[] = ["primary"];
+				try {
+					const token =
+						await calendarClient.googlecalendar.keys.get_access_token();
+					const resp = await fetch(
+						"https://www.googleapis.com/calendar/v3/users/me/calendarList",
+						{ headers: { Authorization: `Bearer ${token}` } },
+					);
+					const calData = (await resp.json()) as {
+						items?: { id: string; primary?: boolean }[];
+					};
+					if (Array.isArray(calData.items)) {
+						for (const cal of calData.items) {
+							if (!cal.primary && cal.id) ids.push(cal.id);
+						}
+					}
+				} catch (err) {
+					console.error("[CalendarSync] Failed to fetch calendar list:", err);
+				}
+				return ids;
+			});
+
+			// Fan out sync events for each calendar
+			const syncEvents = calendarIds.map((calId) => ({
+				name: CALENDAR_SYNC_EVENT,
+				data: {
+					userId: data.userId,
+					accountId: data.accountId,
+					calendarId: calId,
+					loadedCount: 0,
+					rangeStart: rangeStart.toISOString(),
+					rangeEnd: rangeEnd.toISOString(),
+				},
+			}));
+
+			if (syncEvents.length > 0) {
+				await step.sendEvent("enqueue-calendar-sync-fanout", syncEvents);
+			}
+
+			return {
+				message: `Fanned out sync for ${calendarIds.length} calendars.`,
+			};
+		}
+
+		// From here on, we process a single calendar via CALENDAR_SYNC_EVENT
+		const activeCalendarId = data.calendarId || "primary";
+		const safeCalId = activeCalendarId.replace(/[^a-zA-Z0-9-]/g, "-");
+
 		const batchSize = INITIAL_BATCH_SIZE;
 		const page = await step.run(
-			`list-calendar-events-${data.accountId}-${loadedCount}`,
+			`list-calendar-events-${data.accountId}-${safeCalId}-${loadedCount}`,
 			async () => {
 				return calendarClient.googlecalendar.api.events.getMany({
-					calendarId: "primary",
+					calendarId: activeCalendarId,
 					timeMin: rangeStart.toISOString(),
 					timeMax: rangeEnd.toISOString(),
 					singleEvents: true,
@@ -293,7 +346,7 @@ export const calendarInitialSync = inngest.createFunction(
 			}
 
 			await step.run(
-				`sync-calendar-event-${data.accountId}-${eventId}`,
+				`sync-calendar-event-${data.accountId}-${safeCalId}-${eventId}`,
 				async () => {
 					const details = buildEventAnalysisText(calendarEvent);
 					const analysis = await generateSummaryAndEmbeddings(details);
@@ -323,7 +376,7 @@ export const calendarInitialSync = inngest.createFunction(
 							.values({
 								eventId,
 								accountId: data.accountId,
-								calendarId: "primary",
+								calendarId: activeCalendarId,
 								iCalUID: calendarEvent.iCalUID ?? null,
 								summary: calendarEvent.summary ?? null,
 								description: calendarEvent.description ?? null,
@@ -351,7 +404,7 @@ export const calendarInitialSync = inngest.createFunction(
 								target: calendarEventMetadata.eventId,
 								set: {
 									accountId: data.accountId,
-									calendarId: "primary",
+									calendarId: activeCalendarId,
 									iCalUID: calendarEvent.iCalUID ?? null,
 									summary: calendarEvent.summary ?? null,
 									description: calendarEvent.description ?? null,
@@ -399,12 +452,13 @@ export const calendarInitialSync = inngest.createFunction(
 
 		if (nextPageToken) {
 			await step.sendEvent(
-				`enqueue-calendar-sync-${data.accountId}-${nextLoadedCount}`,
+				`enqueue-calendar-sync-${data.accountId}-${safeCalId}-${nextLoadedCount}`,
 				{
 					name: CALENDAR_SYNC_EVENT,
 					data: {
 						userId: data.userId,
 						accountId: data.accountId,
+						calendarId: activeCalendarId,
 						pageToken: nextPageToken,
 						loadedCount: nextLoadedCount,
 						rangeStart: rangeStart.toISOString(),

@@ -44,6 +44,7 @@ export const getAllMailsInput = z.object({
 	hasDeadline: z.boolean().optional(),
 	hasInvoice: z.boolean().optional(),
 	hasAttachment: z.boolean().optional(),
+	isUnread: z.boolean().optional(),
 });
 
 export const getAllMailsOutput = z.object({
@@ -112,5 +113,17 @@ export const archiveMailInput = z.object({
 });
 
 export const archiveMailOutput = z.object({
+	success: z.boolean().describe("Whether the operation was successful"),
+});
+
+export const getUnreadCountOutput = z.object({
+	count: z.number().describe("The number of unread emails in the INBOX"),
+});
+
+export const markAsReadInput = z.object({
+	messageId: z.string().describe("The ID of the message to mark as read"),
+});
+
+export const markAsReadOutput = z.object({
 	success: z.boolean().describe("Whether the operation was successful"),
 });

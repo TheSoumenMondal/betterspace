@@ -15,6 +15,9 @@ import {
 	createDraftMailOutput,
 	getAllMailsInput,
 	getAllMailsOutput,
+	getUnreadCountOutput,
+	markAsReadInput,
+	markAsReadOutput,
 	searchMailsInput,
 	searchMailsOutput,
 	sendMailInput,
@@ -250,6 +253,90 @@ export const gmailRoute = createTRPCRouter({
 
 			return { success: true };
 		}),
+
+	markAsRead: protectedProcedure
+		.meta({
+			path: "gmail-markAsRead",
+			tags,
+			protectedProcedure: true,
+		})
+		.input(markAsReadInput)
+		.output(markAsReadOutput)
+		.mutation(async ({ ctx, input }) => {
+			const { messageId } = input;
+			const gmailClient = corsair.withTenant(ctx.session.user.id);
+
+			await gmailClient.gmail.api.messages.modify({
+				userId: "me",
+				id: messageId,
+				removeLabelIds: ["UNREAD"],
+			});
+
+			const entityResult = await ctx.db
+				.select()
+				.from(corsairEntities)
+				.where(
+					and(
+						eq(corsairEntities.entityId, messageId),
+						eq(corsairEntities.entityType, "messages"),
+					),
+				)
+				.limit(1);
+
+			if (entityResult.length > 0 && entityResult[0]) {
+				const entity = entityResult[0];
+				const data = entity.data as Record<string, unknown>;
+				const labelIds = ((data.labelIds as string[]) || []).filter(
+					(id) => id !== "UNREAD",
+				);
+
+				await ctx.db
+					.update(corsairEntities)
+					.set({ data: { ...data, labelIds } })
+					.where(eq(corsairEntities.id, entity.id));
+			}
+
+			return { success: true };
+		}),
+
+	getUnreadCount: protectedProcedure
+		.meta({
+			path: "gmail-getUnreadCount",
+			tags,
+			protectedProcedure: true,
+		})
+		.output(getUnreadCountOutput)
+		.query(async ({ ctx }) => {
+			const accounts = await ctx.db
+				.select()
+				.from(corsairAccounts)
+				.where(eq(corsairAccounts.tenantId, ctx.session.user.id));
+
+			if (accounts.length === 0) {
+				return { count: 0 };
+			}
+
+			const accountIds = accounts.map((a) => a.id);
+
+			try {
+				const result = await ctx.db
+					.select({ count: sql`count(*)` })
+					.from(corsairEntities)
+					.where(
+						and(
+							inArray(corsairEntities.accountId, accountIds),
+							eq(corsairEntities.entityType, "messages"),
+							sql`${corsairEntities.data}->'labelIds' @> ${JSON.stringify(["INBOX", "UNREAD"])}::jsonb`,
+						),
+					);
+
+				return { count: Number(result[0]?.count || 0) };
+			} catch (error) {
+				console.error("Failed to fetch unread count from database", error);
+				return { count: 0 };
+			}
+		}),
+
 	getAllMails: protectedProcedure
 		.input(getAllMailsInput)
 		.output(getAllMailsOutput)
@@ -264,6 +351,7 @@ export const gmailRoute = createTRPCRouter({
 				hasDeadline,
 				hasInvoice,
 				hasAttachment,
+				isUnread,
 			} = input;
 			const offset = cursor ?? 0;
 
@@ -418,6 +506,17 @@ export const gmailRoute = createTRPCRouter({
 			}
 			if (hasAttachment) {
 				conditions.push(eq(emailAiMetadata.hasAttachment, true));
+			}
+			if (isUnread !== undefined) {
+				if (isUnread) {
+					conditions.push(
+						sql`${corsairEntities.data}->'labelIds' @> ${JSON.stringify(["UNREAD"])}::jsonb`,
+					);
+				} else {
+					conditions.push(
+						sql`NOT (${corsairEntities.data}->'labelIds' @> ${JSON.stringify(["UNREAD"])}::jsonb)`,
+					);
+				}
 			}
 
 			let orderByClause: SQL<unknown>;

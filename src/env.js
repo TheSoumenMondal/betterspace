@@ -21,6 +21,7 @@ export const env = createEnv({
 			.default("development"),
 		APP_URL: z.url(),
 		OPENAI_API_KEY: z.string(),
+		GOOGLE_PUBSUB_TOPIC_ID: z.string(),
 	},
 
 	/**
@@ -47,6 +48,7 @@ export const env = createEnv({
 		CORSAIR_KEK: process.env.CORSAIR_KEK,
 		APP_URL: process.env.APP_URL,
 		OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+		GOOGLE_PUBSUB_TOPIC_ID: process.env.GOOGLE_PUBSUB_TOPIC_ID,
 	},
 	/**
 	 * Run `build` or `dev` with `SKIP_ENV_VALIDATION` to skip env validation. This is especially

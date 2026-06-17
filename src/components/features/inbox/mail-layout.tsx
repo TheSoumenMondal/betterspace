@@ -151,6 +151,7 @@ export function MailLayout({ labelId = "INBOX" }: { labelId?: string }) {
 				hasDeadline: hasDeadline || undefined,
 				hasInvoice: hasInvoice || undefined,
 				hasAttachment: hasAttachment || undefined,
+				isUnread: filter === "all" ? undefined : filter === "unread",
 			};
 			const previousData = utils.gmail.getAllMails.getInfiniteData(queryParams);
 
@@ -218,6 +219,7 @@ export function MailLayout({ labelId = "INBOX" }: { labelId?: string }) {
 			hasDeadline: hasDeadline || undefined,
 			hasInvoice: hasInvoice || undefined,
 			hasAttachment: hasAttachment || undefined,
+			isUnread: filter === "all" ? undefined : filter === "unread",
 		},
 		{
 			getNextPageParam: (lastPage) => lastPage.nextCursor,
@@ -261,6 +263,7 @@ export function MailLayout({ labelId = "INBOX" }: { labelId?: string }) {
 			hasDeadline: hasDeadline || undefined,
 			hasInvoice: hasInvoice || undefined,
 			hasAttachment: hasAttachment || undefined,
+			isUnread: filter === "all" ? undefined : filter === "unread",
 		};
 		const previousData = utils.gmail.getAllMails.getInfiniteData(queryParams);
 
@@ -311,6 +314,57 @@ export function MailLayout({ labelId = "INBOX" }: { labelId?: string }) {
 		},
 	});
 
+	const markAsReadMutation = api.gmail.markAsRead.useMutation({
+		onMutate: async ({ messageId }) => {
+			await utils.gmail.getAllMails.cancel();
+			const queryParams = {
+				limit: 20,
+				labelId,
+				sort: sortOrder,
+				importance:
+					selectedImportances.length > 0 ? selectedImportances : undefined,
+				hasMeetingSignal: hasMeetingSignal || undefined,
+				hasDeadline: hasDeadline || undefined,
+				hasInvoice: hasInvoice || undefined,
+				hasAttachment: hasAttachment || undefined,
+				isUnread: filter === "all" ? undefined : filter === "unread",
+			};
+			const previousData = utils.gmail.getAllMails.getInfiniteData(queryParams);
+
+			utils.gmail.getAllMails.setInfiniteData(queryParams, (old) => {
+				if (!old) return old;
+				return {
+					...old,
+					pages: old.pages.map((page) => ({
+						...page,
+						items: page.items.map((item: Record<string, unknown>) => {
+							if (item.id === messageId) {
+								const currentLabelIds = (item.labelIds as string[]) || [];
+								return {
+									...item,
+									labelIds: currentLabelIds.filter((id) => id !== "UNREAD"),
+								};
+							}
+							return item;
+						}),
+					})),
+				};
+			});
+
+			void utils.gmail.getUnreadCount.invalidate();
+
+			return { previousData, queryParams };
+		},
+		onError: (_err, _newTodo, context) => {
+			if (context?.previousData) {
+				utils.gmail.getAllMails.setInfiniteData(
+					context.queryParams,
+					context.previousData,
+				);
+			}
+		},
+	});
+
 	const allMails = Array.from(
 		new Map(
 			(data?.pages.flatMap((page) => page.items) || []).map((item) => [
@@ -321,6 +375,12 @@ export function MailLayout({ labelId = "INBOX" }: { labelId?: string }) {
 	);
 	const filteredData = allMails.filter((message: Record<string, unknown>) => {
 		if (filter === "all") return true;
+
+		// Keep the currently selected mail visible in the list until they navigate away from it,
+		// otherwise auto-selecting an unread mail will mark it as read, instantly hide it,
+		// and trigger an infinite loop of reading all emails.
+		if (message.id === selectedMailId && filter === "unread") return true;
+
 		const labelIds = (message.labelIds as string[]) || [];
 		const isUnread = labelIds.includes("UNREAD");
 		return filter === "read" ? !isUnread : isUnread;
@@ -345,6 +405,20 @@ export function MailLayout({ labelId = "INBOX" }: { labelId?: string }) {
 			}
 		}
 	}, [filteredData, selectedMailId, setSelectedMailId]);
+
+	useEffect(() => {
+		if (selectedMailId) {
+			const selectedMail = allMails.find(
+				(m: Record<string, unknown>) => m.id === selectedMailId,
+			);
+			if (selectedMail) {
+				const labelIds = (selectedMail.labelIds as string[]) || [];
+				if (labelIds.includes("UNREAD")) {
+					markAsReadMutation.mutate({ messageId: selectedMailId });
+				}
+			}
+		}
+	}, [selectedMailId, allMails, markAsReadMutation.mutate]);
 
 	if (isLoading)
 		return (
@@ -648,6 +722,7 @@ export function MailLayout({ labelId = "INBOX" }: { labelId?: string }) {
 
 						const labelIds = (message.labelIds as string[]) || [];
 						const _isStarred = labelIds.includes("STARRED");
+						const isUnread = labelIds.includes("UNREAD");
 						const hiddenLabels = [
 							"UNREAD",
 							"INBOX",
@@ -721,7 +796,19 @@ export function MailLayout({ labelId = "INBOX" }: { labelId?: string }) {
 								<div className="flex w-full flex-col gap-1">
 									<div className="flex items-center">
 										<div className="flex items-center gap-2">
-											<div className="font-semibold text-sm">{from}</div>
+											<div
+												className={cn(
+													"text-sm",
+													isUnread
+														? "font-bold text-foreground"
+														: "font-semibold",
+												)}
+											>
+												{from}
+											</div>
+											{isUnread && (
+												<span className="flex h-2 w-2 rounded-full bg-blue-600" />
+											)}
 										</div>
 										<div
 											className={cn(

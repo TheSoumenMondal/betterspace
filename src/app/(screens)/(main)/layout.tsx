@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import type * as React from "react";
 import { AppSidebar } from "@/components/features/sidebar/app-sidebar";
 import { AppNavbar } from "@/components/features/sidebar/navbar";
@@ -7,9 +8,12 @@ type Props = {
 	children: React.ReactNode;
 };
 
-const layout = ({ children }: Props) => {
+const layout = async ({ children }: Props) => {
+	const cookieStore = await cookies();
+	const defaultOpen = cookieStore.get("sidebar_state")?.value !== "false";
+
 	return (
-		<SidebarProvider>
+		<SidebarProvider defaultOpen={defaultOpen}>
 			<AppSidebar />
 			<SidebarInset className="flex h-svh flex-col overflow-hidden bg-sidebar shadow-none">
 				<AppNavbar />

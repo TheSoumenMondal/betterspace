@@ -95,10 +95,10 @@ function Breadcrumb({ pathname }: { pathname: string }) {
 
 export function AppNavbar() {
 	const { toggleSidebar, open } = useSidebar();
+	const { navSlot, actionSlot } = useNavSlot();
 	const pathname = usePathname();
 	const router = useRouter();
 	const searchParams = useSearchParams();
-	const { navSlot } = useNavSlot();
 	const isConversationRoute = /^\/space\/[^/]+$/.test(pathname);
 	const isSpaceRoute = pathname.startsWith("/space");
 	const [sheetOpen, setSheetOpen] = useState(false);
@@ -164,6 +164,7 @@ export function AppNavbar() {
 
 			<div className="flex items-center gap-1 md:gap-2">
 				<CommandMenu />
+				{actionSlot}
 				<Button
 					className="hidden shrink-0 shadow-sm lg:flex"
 					onClick={() => setComposeOpen(true)}

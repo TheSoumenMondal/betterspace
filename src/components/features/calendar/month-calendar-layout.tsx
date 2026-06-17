@@ -1,14 +1,23 @@
 "use client";
 
-import { ChevronLeftIcon, ChevronRightIcon } from "@hugeicons/core-free-icons";
+import {
+	ChevronLeftIcon,
+	ChevronRightIcon,
+	PlusSignIcon,
+} from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useCallback, useMemo, useState } from "react";
-import { NavSlot } from "@/components/features/sidebar/navslot-context";
+import {
+	ActionSlot,
+	NavSlot,
+} from "@/components/features/sidebar/navslot-context";
 import { Button } from "@/components/ui/button";
+import { Button as Button2 } from "@/components/ui/button-2";
 import { api } from "@/trpc/react";
 import { MONTH_NAMES, WEEKDAY_LABELS } from "./constants";
 import { DayCell } from "./day-cell";
 import { DayEventsSheet } from "./day-events-sheet";
+import { EventDialog } from "./event-dialog";
 import { StatsChip } from "./stats-chip";
 import type { CalendarEvent } from "./types";
 import {
@@ -26,6 +35,7 @@ export function MonthCalendarLayout() {
 	const [month, setMonth] = useState(todayDate.getMonth());
 	const [selectedDate, setSelectedDate] = useState<Date | null>(todayDate);
 	const [isDayDialogOpen, setIsDayDialogOpen] = useState(false);
+	const [isEventDialogOpen, setIsEventDialogOpen] = useState(false);
 
 	const timeMin = useMemo(
 		() => startOfMonth(year, month).toISOString(),
@@ -95,7 +105,7 @@ export function MonthCalendarLayout() {
 		<>
 			<NavSlot>
 				<div className="flex min-w-0 flex-1 items-center gap-1 sm:gap-2">
-					<div className="flex shrink-0 items-center">
+					<div className="hidden shrink-0 items-center sm:flex">
 						<Button
 							className="h-6 w-6 shrink-0"
 							onClick={prevMonth}
@@ -118,16 +128,16 @@ export function MonthCalendarLayout() {
 					</div>
 
 					<Button
-						className="h-6 shrink-0 px-2 font-medium text-[10px] sm:text-xs"
+						className="hidden h-6 shrink-0 px-2 font-medium text-[10px] sm:text-xs lg:flex"
 						onClick={goToday}
 						variant="outline"
 					>
 						Today
 					</Button>
 
-					<div className="mx-1 hidden h-4 w-px shrink-0 bg-border sm:block" />
+					<div className="mx-1 hidden h-4 w-px shrink-0 bg-border lg:block" />
 
-					<div className="hidden shrink-0 items-center gap-3 text-muted-foreground/80 sm:flex sm:gap-4">
+					<div className="hidden shrink-0 items-center gap-3 text-muted-foreground/80 sm:gap-4 lg:flex">
 						<StatsChip
 							isLoading={isLoading}
 							label="events"
@@ -147,6 +157,24 @@ export function MonthCalendarLayout() {
 					</div>
 				</div>
 			</NavSlot>
+
+			<ActionSlot>
+				<Button2
+					className="hidden sm:flex"
+					onClick={() => setIsEventDialogOpen(true)}
+					variant="info"
+				>
+					Create
+				</Button2>
+				<Button2
+					className="flex sm:hidden"
+					onClick={() => setIsEventDialogOpen(true)}
+					size="icon"
+					variant="ghost"
+				>
+					<HugeiconsIcon icon={PlusSignIcon} />
+				</Button2>
+			</ActionSlot>
 
 			<div className="flex h-full flex-col overflow-hidden">
 				<div className="grid shrink-0 grid-cols-7 border-border border-b">
@@ -204,6 +232,12 @@ export function MonthCalendarLayout() {
 				}
 				isOpen={isDayDialogOpen}
 				onClose={() => setIsDayDialogOpen(false)}
+			/>
+
+			<EventDialog
+				isOpen={isEventDialogOpen}
+				onClose={() => setIsEventDialogOpen(false)}
+				selectedDate={selectedDate ?? todayDate}
 			/>
 		</>
 	);

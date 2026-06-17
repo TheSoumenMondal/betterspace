@@ -909,6 +909,7 @@ export function MailLayout({ labelId = "INBOX" }: { labelId?: string }) {
 											trashMailMutation.mutate({ messageId: selectedMailId });
 										}
 									}}
+									variant="destructive"
 								>
 									Delete
 								</AlertDialogAction>
@@ -1025,6 +1026,7 @@ export function MailLayout({ labelId = "INBOX" }: { labelId?: string }) {
 			<div className="flex shrink-0 items-center justify-end border-t bg-background px-4 py-3">
 				<ReplySheet
 					subject={selectedSubject}
+					threadId={selectedMail?.threadId as string | undefined}
 					toEmail={selectedFromEmail}
 					toName={selectedFromName}
 					trigger={

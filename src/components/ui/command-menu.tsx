@@ -406,12 +406,13 @@ export function CommandMenu() {
 	return (
 		<>
 			<Button
-				className="relative h-8 w-28 rounded-[0.5rem] bg-muted/50 px-2 font-normal text-muted-foreground text-sm shadow-none md:w-40 md:justify-start md:px-3 md:pr-12 lg:w-56"
+				className="relative h-8 w-8 rounded-[0.5rem] bg-muted/50 px-0 font-normal text-muted-foreground text-sm shadow-none md:w-40 md:justify-start md:px-3 md:pr-12 lg:w-56"
 				onClick={() => setOpen(true)}
 				size="sm"
 				variant="outline"
 			>
-				<span className="inline-flex truncate">Search...</span>
+				<span className="hidden truncate md:inline-flex">Search...</span>
+				<HugeiconsIcon className="size-4 md:hidden" icon={Search01Icon} />
 				<KbdGroup className="hidden md:absolute md:top-[0.3rem] md:right-[0.3rem] md:flex">
 					<Kbd>
 						<HugeiconsIcon icon={CommandIcon} />

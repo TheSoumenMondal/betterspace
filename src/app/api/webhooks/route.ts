@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
 		};
 
 		if (!headers["user-agent"]?.includes("APIs-Google")) {
-			headers["user-agent"] = (headers["user-agent"] || "") + " APIs-Google";
+			headers["user-agent"] = `${headers["user-agent"] || ""} APIs-Google`;
 		}
 	}
 

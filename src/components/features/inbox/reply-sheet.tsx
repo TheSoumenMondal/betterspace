@@ -1,14 +1,19 @@
 import { Bold, ImageIcon, Italic, List, Paperclip, X } from "lucide-react";
 import React, { useState } from "react";
+import { toast } from "sonner";
+
 import { Button } from "@/components/ui/button-2";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { authClient } from "@/server/better-auth/client";
+import { api } from "@/trpc/react";
 
 interface ReplySheetProps {
 	toEmail: string;
 	toName: string;
 	subject: string;
+	threadId?: string;
 	trigger: React.ReactNode;
 }
 
@@ -16,9 +21,38 @@ export function ReplySheet({
 	toEmail,
 	toName,
 	subject,
+	threadId,
 	trigger,
 }: ReplySheetProps) {
 	const [isOpen, setIsOpen] = useState(false);
+	const [replyBody, setReplyBody] = useState("");
+	const { data: session } = authClient.useSession();
+
+	const sendMailMutation = api.gmail.sendMail.useMutation({
+		onSuccess: () => {
+			toast.success("Reply sent successfully");
+			setIsOpen(false);
+			setReplyBody("");
+		},
+		onError: (error) => {
+			toast.error(`Failed to send reply: ${error.message}`);
+		},
+	});
+
+	const handleSendReply = () => {
+		if (!replyBody.trim()) {
+			toast.error("Please enter a reply");
+			return;
+		}
+
+		sendMailMutation.mutate({
+			sender: session?.user?.email ?? "",
+			to: [toEmail],
+			subject: subject.startsWith("Re:") ? subject : `Re: ${subject}`,
+			body: replyBody,
+			threadId,
+		});
+	};
 
 	const triggerElement = React.isValidElement(trigger) ? (
 		React.cloneElement(
@@ -101,7 +135,9 @@ export function ReplySheet({
 							aria-label="Message"
 							className="flex-1 resize-none border-0 bg-transparent p-0 text-base focus-visible:ring-0"
 							id="message-input"
+							onChange={(e) => setReplyBody(e.target.value)}
 							placeholder="Write your reply..."
+							value={replyBody}
 						/>
 					</div>
 				</div>
@@ -153,8 +189,12 @@ export function ReplySheet({
 						>
 							Cancel
 						</Button>
-						<Button onClick={() => setIsOpen(false)} variant="info">
-							Send Reply
+						<Button
+							disabled={sendMailMutation.isPending}
+							onClick={handleSendReply}
+							variant="info"
+						>
+							{sendMailMutation.isPending ? "Sending..." : "Send Reply"}
 						</Button>
 					</div>
 				</div>

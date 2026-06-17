@@ -256,3 +256,31 @@ export const getEventsOutputModel = z.object({
 		.optional()
 		.describe("The time zone of the time range to retrieve events from."),
 });
+
+export const createEventInputModel = z.object({
+	calendarId: z.string().default("primary"),
+	summary: z.string().min(1, "Event title is required"),
+	description: z.string().optional(),
+	location: z.string().optional(),
+	isAllDay: z.boolean().default(false),
+	startAt: z.string(),
+	endAt: z.string(),
+	timeZone: z.string().optional(),
+});
+
+export const updateEventInputModel = z.object({
+	calendarId: z.string().default("primary"),
+	eventId: z.string(),
+	summary: z.string().min(1, "Event title is required").optional(),
+	description: z.string().optional(),
+	location: z.string().optional(),
+	isAllDay: z.boolean().optional(),
+	startAt: z.string().optional(),
+	endAt: z.string().optional(),
+	timeZone: z.string().optional(),
+});
+
+export const deleteEventInputModel = z.object({
+	calendarId: z.string().default("primary"),
+	eventId: z.string(),
+});

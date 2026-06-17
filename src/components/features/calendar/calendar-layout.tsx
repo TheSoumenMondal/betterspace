@@ -3,16 +3,32 @@
 import {
 	ChevronLeftIcon,
 	ChevronRightIcon,
+	Delete02Icon,
+	PencilEdit02Icon,
+	PlusSignIcon,
 	SearchIcon,
 	VideoIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import Image from "next/image";
 import { useCallback, useMemo, useState } from "react";
-import { NavSlot } from "@/components/features/sidebar/navslot-context";
+import { toast } from "sonner";
+import {
+	ActionSlot,
+	NavSlot,
+} from "@/components/features/sidebar/navslot-context";
 import { AlarmClockIcon } from "@/components/ui/alarm-clock-icon";
+import {
+	AlertDialog,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Button as Button2 } from "@/components/ui/button-2";
 import {
 	InputGroup,
 	InputGroupAddon,
@@ -30,6 +46,7 @@ import {
 	AnimatedVideoIcon,
 } from "./animated-detail-icons";
 import { MONTH_NAMES } from "./constants";
+import { EventDialog } from "./event-dialog";
 import type { CalendarEvent } from "./types";
 import { endOfMonth, eventColour, startOfMonth } from "./utils";
 
@@ -121,9 +138,11 @@ function EventCard({ event, isSelected, onSelect }: EventCardProps) {
 
 interface EventDetailPanelProps {
 	event: CalendarEvent | null;
+	onEdit?: (event: CalendarEvent) => void;
+	onDelete?: (event: CalendarEvent) => void;
 }
 
-function EventDetailPanel({ event }: EventDetailPanelProps) {
+function EventDetailPanel({ event, onEdit, onDelete }: EventDetailPanelProps) {
 	if (!event) {
 		return (
 			<div className="flex h-full select-none flex-col items-center justify-center gap-4 p-8 text-muted-foreground">
@@ -150,9 +169,16 @@ function EventDetailPanel({ event }: EventDetailPanelProps) {
 	const colorObj = eventColour(event);
 	const dotClass = colorObj.dot;
 
+	const isCreator = event.creator?.self;
+	const isOrganizer = event.organizer?.self;
+	const isImported =
+		(event.organizer?.email?.includes("import.calendar.google.com") ?? false) ||
+		(event.description?.includes("Added automatically") ?? false);
+	const canEdit = (isCreator || isOrganizer) && !isImported;
+
 	return (
 		<div className="flex min-h-0 flex-1 flex-col bg-card">
-			<div className="rounded-t-lg border-border border-b bg-muted/10 px-6 py-5">
+			<div className="relative rounded-t-lg border-border border-b bg-muted/10 px-6 py-5">
 				<div className="flex items-start gap-3">
 					<span
 						className={cn(
@@ -160,7 +186,7 @@ function EventDetailPanel({ event }: EventDetailPanelProps) {
 							dotClass,
 						)}
 					/>
-					<div className="min-w-0 flex-1">
+					<div className="min-w-0 flex-1 pr-12">
 						<h2 className="font-copper-bt-regular text-[17px] text-foreground leading-snug tracking-wide">
 							{event.summary ?? "(No title)"}
 						</h2>
@@ -169,6 +195,46 @@ function EventDetailPanel({ event }: EventDetailPanelProps) {
 						</p>
 					</div>
 				</div>
+
+				{(onEdit || onDelete) && (
+					<div className="absolute top-4 right-4 flex items-center gap-1">
+						{onEdit && (
+							<Button
+								onClick={() => {
+									if (!canEdit) {
+										toast.error(
+											"You cannot edit this event because it was created by someone else.",
+										);
+										return;
+									}
+									onEdit(event);
+								}}
+								size="icon-sm"
+								variant="ghost"
+							>
+								<HugeiconsIcon icon={PencilEdit02Icon} size={14} />
+							</Button>
+						)}
+						{onDelete && (
+							<Button
+								className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+								onClick={() => {
+									if (!canEdit) {
+										toast.error(
+											"You cannot delete this event because it was created by someone else.",
+										);
+										return;
+									}
+									onDelete(event);
+								}}
+								size="icon-sm"
+								variant="ghost"
+							>
+								<HugeiconsIcon icon={Delete02Icon} size={14} />
+							</Button>
+						)}
+					</div>
+				)}
 			</div>
 
 			<ScrollArea className="custom-scrollbar min-h-0 flex-1">
@@ -400,6 +466,53 @@ export function CalendarLayout() {
 	const [sheetOpen, setSheetOpen] = useState(false);
 	const [searchQuery, setSearchQuery] = useState("");
 
+	const [dialogOpen, setDialogOpen] = useState(false);
+	const [dialogEvent, setDialogEvent] = useState<CalendarEvent | null>(null);
+
+	const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+	const [eventToDelete, setEventToDelete] = useState<CalendarEvent | null>(
+		null,
+	);
+
+	const handleEditEvent = useCallback((event: CalendarEvent) => {
+		setSheetOpen(false);
+		// Use a small timeout to let the sheet start closing before the dialog captures focus
+		setTimeout(() => {
+			setDialogEvent(event);
+			setDialogOpen(true);
+		}, 100);
+	}, []);
+
+	const handleCreateEvent = useCallback(() => {
+		setDialogEvent(null);
+		setDialogOpen(true);
+	}, []);
+
+	const utils = api.useUtils();
+	const deleteMutation = api.calendar.deleteEvent.useMutation({
+		onSuccess: () => {
+			utils.calendar.getEvents.invalidate();
+			setSelectedEvent(null);
+			setSheetOpen(false);
+			setDeleteDialogOpen(false);
+			setEventToDelete(null);
+		},
+	});
+
+	const handleDeleteEvent = useCallback((event: CalendarEvent) => {
+		setSheetOpen(false);
+		setTimeout(() => {
+			setEventToDelete(event);
+			setDeleteDialogOpen(true);
+		}, 100);
+	}, []);
+
+	const confirmDelete = useCallback(() => {
+		if (eventToDelete?.id) {
+			deleteMutation.mutate({ eventId: eventToDelete.id });
+		}
+	}, [eventToDelete, deleteMutation]);
+
 	const handleSelectEvent = useCallback((event: CalendarEvent) => {
 		setSelectedEvent(event);
 
@@ -453,7 +566,7 @@ export function CalendarLayout() {
 		<>
 			<NavSlot>
 				<div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-4">
-					<div className="flex shrink-0 items-center">
+					<div className="hidden shrink-0 items-center sm:flex">
 						<Button
 							className="h-6 w-6 shrink-0"
 							onClick={prevMonth}
@@ -495,6 +608,24 @@ export function CalendarLayout() {
 				</div>
 			</NavSlot>
 
+			<ActionSlot>
+				<Button2
+					className="hidden sm:flex"
+					onClick={handleCreateEvent}
+					variant="info"
+				>
+					Create
+				</Button2>
+				<Button2
+					className="flex sm:hidden"
+					onClick={handleCreateEvent}
+					size="icon"
+					variant="ghost"
+				>
+					<HugeiconsIcon icon={PlusSignIcon} />
+				</Button2>
+			</ActionSlot>
+
 			<div className="flex min-h-0 flex-1 overflow-hidden">
 				<div className="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden">
 					<ListView
@@ -507,7 +638,11 @@ export function CalendarLayout() {
 				</div>
 
 				<div className="hidden w-85 shrink-0 flex-col overflow-hidden border-border border-l bg-card lg:flex xl:w-100">
-					<EventDetailPanel event={selectedEvent} />
+					<EventDetailPanel
+						event={selectedEvent}
+						onDelete={handleDeleteEvent}
+						onEdit={handleEditEvent}
+					/>
 				</div>
 			</div>
 
@@ -524,10 +659,48 @@ export function CalendarLayout() {
 						{selectedEvent?.summary ?? "Event details"}
 					</SheetTitle>
 					<div className="min-h-0 flex-1 overflow-hidden">
-						<EventDetailPanel event={selectedEvent} />
+						<EventDetailPanel
+							event={selectedEvent}
+							onDelete={handleDeleteEvent}
+							onEdit={handleEditEvent}
+						/>
 					</div>
 				</SheetContent>
 			</Sheet>
+
+			<EventDialog
+				event={dialogEvent}
+				isOpen={dialogOpen}
+				onClose={() => setDialogOpen(false)}
+			/>
+
+			<AlertDialog onOpenChange={setDeleteDialogOpen} open={deleteDialogOpen}>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>Delete Event</AlertDialogTitle>
+						<AlertDialogDescription>
+							Are you sure you want to delete this event? This action cannot be
+							undone.
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<Button2
+							disabled={deleteMutation.isPending}
+							onClick={() => setDeleteDialogOpen(false)}
+							variant="outline"
+						>
+							Cancel
+						</Button2>
+						<Button2
+							disabled={deleteMutation.isPending}
+							onClick={confirmDelete}
+							variant="destructive"
+						>
+							{deleteMutation.isPending ? "Deleting..." : "Delete"}
+						</Button2>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
 		</>
 	);
 }

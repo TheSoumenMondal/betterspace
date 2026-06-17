@@ -16,14 +16,25 @@ export const calendarIncomingEvent = inngest.createFunction(
 		triggers: [{ event: "sync/calendar.event.received" }],
 	},
 	async ({ event, step }) => {
-		const { accountId, calendarId, eventType, calendarEvent, eventId } =
+		const { accountId, calendarId, eventType, calendarEvent, eventId, userId } =
 			event.data as {
+				userId: string;
 				accountId: string;
 				calendarId: string;
 				eventType: "eventCreated" | "eventUpdated" | "eventDeleted";
 				calendarEvent?: CalendarEvent;
 				eventId?: string;
 			};
+
+		const { user } = await import("@/server/db/schema");
+		const foundUser = await db.query.user.findFirst({
+			where: eq(user.id, userId),
+			columns: { plan: true },
+		});
+
+		if (foundUser?.plan !== "pro" && foundUser?.plan !== "pro_plus") {
+			return { status: "ignored", reason: "free tier" };
+		}
 
 		if (eventType === "eventDeleted") {
 			const idToRemove = eventId ?? calendarEvent?.id;

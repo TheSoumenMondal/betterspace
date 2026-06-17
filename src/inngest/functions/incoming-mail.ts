@@ -352,6 +352,17 @@ export const gmailIncomingMail = inngest.createFunction(
 			accountId: string;
 			messageId: string;
 		};
+
+		const { user } = await import("@/server/db/schema");
+		const foundUser = await db.query.user.findFirst({
+			where: eq(user.id, data.userId),
+			columns: { plan: true },
+		});
+
+		if (foundUser?.plan !== "pro" && foundUser?.plan !== "pro_plus") {
+			return { status: "ignored", reason: "free tier" };
+		}
+
 		const gmailClient = corsair.withTenant(data.userId);
 		await syncSingleMessage(data.messageId, data, gmailClient, step);
 		return { completed: true, messageId: data.messageId };

@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/tooltip";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
+import { useSidebarStore } from "@/store/sidebar-store";
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state";
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
@@ -67,9 +68,16 @@ function SidebarProvider({
 	const isMobile = useIsMobile();
 	const [openMobile, setOpenMobile] = React.useState(false);
 
+	const sidebarStore = useSidebarStore();
+	const [isMounted, setIsMounted] = React.useState(false);
+
+	React.useEffect(() => {
+		setIsMounted(true);
+	}, []);
+
 	// This is the internal state of the sidebar.
 	// We use openProp and setOpenProp for control from outside the component.
-	const [_open, _setOpen] = React.useState(defaultOpen);
+	const _open = isMounted ? sidebarStore.isOpen : (defaultOpen ?? true);
 	const open = openProp ?? _open;
 	const setOpen = React.useCallback(
 		(value: boolean | ((value: boolean) => boolean)) => {
@@ -77,14 +85,14 @@ function SidebarProvider({
 			if (setOpenProp) {
 				setOpenProp(openState);
 			} else {
-				_setOpen(openState);
+				sidebarStore.setIsOpen(openState);
 			}
 
 			// This sets the cookie to keep the sidebar state.
 			// biome-ignore lint/suspicious/noDocumentCookie: cookie store API not well supported yet
 			document.cookie = `${SIDEBAR_COOKIE_NAME}=${openState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`;
 		},
-		[setOpenProp, open],
+		[setOpenProp, open, sidebarStore],
 	);
 
 	// Helper to toggle the sidebar.

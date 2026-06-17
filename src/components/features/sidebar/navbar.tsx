@@ -49,6 +49,7 @@ const segmentLabels: Record<string, string> = {
 	mail: "Mail",
 	calendar: "Calendar",
 	settings: "Settings",
+	intelligence: "Advanced Search",
 };
 
 function Breadcrumb({ pathname }: { pathname: string }) {

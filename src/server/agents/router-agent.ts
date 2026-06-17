@@ -2,6 +2,7 @@ import { Agent } from "@openai/agents";
 import type { corsair } from "@/corsair";
 import { createCalendarAgent } from "./calendar-agent";
 import { createGmailAgent } from "./gmail-agent";
+import { createSearchAgent } from "./search-agent";
 
 export function createRouterAgent(
 	corsairClient: ReturnType<typeof corsair.withTenant>,
@@ -11,6 +12,7 @@ export function createRouterAgent(
 		userName: options?.userName,
 	});
 	const calendarAgent = createCalendarAgent(corsairClient);
+	const searchAgent = createSearchAgent(corsairClient);
 
 	return Agent.create({
 		name: "Betterspace Router",
@@ -21,6 +23,7 @@ specialist. You do NOT answer general questions, have conversations, or provide 
 outside of Gmail and Google Calendar.
 
 ## Routing rules
+- Hand off complex, multi-service, or advanced search queries → Advanced Search Agent.
 - Hand off email, inbox, Gmail, drafting, replying, and sending requests → Gmail Agent.
 - Hand off meetings, availability, scheduling, events, and Google Calendar requests → Calendar Agent.
 - When handing off, DO NOT generate any text or preamble. Invoke the handoff tool immediately.
@@ -36,6 +39,6 @@ you MUST refuse with exactly this message and nothing else:
 Never answer general questions. Never make exceptions. Never claim an action succeeded unless
 a specialist's tools completed it. Do not ask for Google credentials, API keys, or setup.
 	`,
-		handoffs: [gmailAgent, calendarAgent],
+		handoffs: [searchAgent, gmailAgent, calendarAgent],
 	});
 }

@@ -76,9 +76,9 @@
         "husky": "^9.1.7",
         "lint-staged": "^17.0.7",
         "postcss": "^8.5.3",
-        "tailwindcss": "^4.0.15"
-      }
-    }
+        "tailwindcss": "^4.0.15",
+      },
+    },
   },
   "packages": {
     "-": ["-@0.0.1-security.1", "", {}, "sha512-3Zy+2t+L0IAXtep/9JfiCrWiqWbfEjbIwJUQHeTAcZglnAmHugb+5/f3Qg9K3hLTykJ4SK/s1G+mymranjR/kA=="],
@@ -2697,6 +2697,6 @@
 
     "pkg-up/find-up/locate-path/p-locate/p-limit": ["p-limit@2.3.0", "", { "dependencies": { "p-try": "^2.0.0" } }, "sha512-//88mFWSJx8lxCzwdAABTJL2MyWB12+eIY7MDL2SqLmAkeKU9qxRvWuSyTjm3FUmpBEMuFfckAIqEaVGUDxb6w=="],
 
-    "rimraf/glob/minimatch/brace-expansion/balanced-match": ["balanced-match@1.0.2", "", {}, "sha512-3oSeUO0TMV67hN1AmbXsK4yaqU7tjiHlbxRDZOpH0KW9+CeX4bRAaX0Anxt0tx2MrpRpWwQaPwIlISEJhYU5Pw=="]
+    "rimraf/glob/minimatch/brace-expansion/balanced-match": ["balanced-match@1.0.2", "", {}, "sha512-3oSeUO0TMV67hN1AmbXsK4yaqU7tjiHlbxRDZOpH0KW9+CeX4bRAaX0Anxt0tx2MrpRpWwQaPwIlISEJhYU5Pw=="],
   }
 }

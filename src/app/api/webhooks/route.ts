@@ -44,9 +44,37 @@ export async function POST(request: NextRequest) {
 		}
 	}
 
-	const result = await processWebhook(corsair, headers, body, { tenantId });
+	let finalBody = body;
+	if (
+		headers["x-goog-channel-id"] &&
+		(!body || Object.keys(body).length === 0)
+	) {
+		const mockPayload = {
+			resourceId: headers["x-goog-resource-id"],
+			resourceState: headers["x-goog-resource-state"],
+			resourceUri: headers["x-goog-resource-uri"],
+			channelId: headers["x-goog-channel-id"],
+			channelExpiration: headers["x-goog-channel-expiration"],
+			channelToken: headers["x-goog-channel-token"],
+			changed: headers["x-goog-changed"],
+		};
 
-	if (!result.response) {
+		finalBody = {
+			message: {
+				data: Buffer.from(JSON.stringify(mockPayload)).toString("base64"),
+			},
+		};
+
+		if (!headers["user-agent"]?.includes("APIs-Google")) {
+			headers["user-agent"] = (headers["user-agent"] || "") + " APIs-Google";
+		}
+	}
+
+	const result = await processWebhook(corsair, headers, finalBody, {
+		tenantId,
+	});
+
+	if (!result?.response) {
 		return NextResponse.json({ success: false }, { status: 404 });
 	}
 

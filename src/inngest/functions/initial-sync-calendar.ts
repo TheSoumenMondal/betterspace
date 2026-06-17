@@ -2,6 +2,7 @@ import { addDays, addYears, startOfDay } from "date-fns";
 import { eq } from "drizzle-orm";
 import { corsair } from "@/corsair";
 import { inngest } from "@/inngest/client";
+import { registerCalendarWatch } from "@/lib/calendar";
 import { generateSummaryAndEmbeddings } from "@/lib/openai";
 import { db } from "@/server/db";
 import {
@@ -24,7 +25,7 @@ type CalendarSyncEventData = {
 	rangeEnd?: string;
 };
 
-type CalendarEvent = {
+export type CalendarEvent = {
 	id?: string;
 	status?: "confirmed" | "tentative" | "cancelled";
 	htmlLink?: string;
@@ -114,7 +115,7 @@ function normalizeWhitespace(value: string) {
 	return value.replace(/\s+/g, " ").trim();
 }
 
-function parseDateTime(value?: string, fallbackTimeZone?: string) {
+export function parseDateTime(value?: string, fallbackTimeZone?: string) {
 	if (!value) {
 		return null;
 	}
@@ -140,7 +141,7 @@ function formatDateRangeLabel(event: CalendarEvent) {
 	return [startLabel, endLabel].filter(Boolean).join("\n");
 }
 
-function buildEventAnalysisText(event: CalendarEvent) {
+export function buildEventAnalysisText(event: CalendarEvent) {
 	const attendeeLines = (event.attendees ?? [])
 		.map((attendee) => {
 			const name = attendee.displayName ?? attendee.email ?? "Unknown attendee";
@@ -188,7 +189,7 @@ function getCalendarEndDate(plan: CalendarPlan, startDate: Date) {
 	return addYears(startDate, 1);
 }
 
-function buildEventChunks(input: {
+export function buildEventChunks(input: {
 	summary: string;
 	details: string;
 	embedding: number[];
@@ -477,6 +478,16 @@ export const calendarInitialSync = inngest.createFunction(
 					},
 				},
 			);
+		}
+
+		if (!nextPageToken && activeCalendarId === "primary") {
+			await step.run(`register-calendar-watch-${data.accountId}`, async () => {
+				try {
+					await registerCalendarWatch(data.userId);
+				} catch (err) {
+					console.error("Failed to register calendar watch:", err);
+				}
+			});
 		}
 
 		return {

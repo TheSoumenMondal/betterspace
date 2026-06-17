@@ -6,13 +6,15 @@ import {
 	Menu02FreeIcons,
 	PanelLeftCloseIcon,
 	PanelLeftOpenIcon,
+	PencilEdit01Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { motion } from "framer-motion";
 import { XIcon } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useState } from "react";
+import { ComposeDialog } from "@/components/features/inbox/compose-dialog";
 import { Button, buttonVariants } from "@/components/ui/button-2";
 import { CommandMenu } from "@/components/ui/command-menu";
 import {
@@ -21,7 +23,6 @@ import {
 	SheetContent,
 	SheetHeader,
 	SheetTitle,
-	SheetTrigger,
 } from "@/components/ui/sheet";
 import { useSidebar } from "@/components/ui/sidebar";
 import { Spinner } from "@/components/ui/spinner";
@@ -95,10 +96,26 @@ function Breadcrumb({ pathname }: { pathname: string }) {
 export function AppNavbar() {
 	const { toggleSidebar, open } = useSidebar();
 	const pathname = usePathname();
+	const router = useRouter();
+	const searchParams = useSearchParams();
 	const { navSlot } = useNavSlot();
 	const isConversationRoute = /^\/space\/[^/]+$/.test(pathname);
 	const isSpaceRoute = pathname.startsWith("/space");
 	const [sheetOpen, setSheetOpen] = useState(false);
+
+	const composeOpen = searchParams.get("compose") === "1";
+	const setComposeOpen = useCallback(
+		(openState: boolean) => {
+			const params = new URLSearchParams(searchParams.toString());
+			if (openState) {
+				params.set("compose", "1");
+			} else {
+				params.delete("compose");
+			}
+			router.push(`${pathname}?${params.toString()}`);
+		},
+		[searchParams, pathname, router],
+	);
 
 	const { data: conversations, isLoading } = api.chat.history.useQuery(
 		undefined,
@@ -147,6 +164,22 @@ export function AppNavbar() {
 
 			<div className="flex items-center gap-1 md:gap-2">
 				<CommandMenu />
+				<Button
+					className="hidden shrink-0 shadow-sm lg:flex"
+					onClick={() => setComposeOpen(true)}
+					size="default"
+					variant="info"
+				>
+					<span className="font-medium">Compose</span>
+				</Button>
+				<Button
+					className="flex lg:hidden"
+					onClick={() => setComposeOpen(true)}
+					size="icon-sm"
+					variant="ghost"
+				>
+					<HugeiconsIcon className="size-4" icon={PencilEdit01Icon} />
+				</Button>
 				{isSpaceRoute && (
 					<>
 						<TooltipProvider delayDuration={300}>
@@ -186,14 +219,16 @@ export function AppNavbar() {
 							<TooltipProvider delayDuration={300}>
 								<Tooltip>
 									<TooltipTrigger asChild>
-										<SheetTrigger asChild>
-											<Button size="icon" variant="ghost">
-												<HugeiconsIcon
-													className="size-4"
-													icon={Menu02FreeIcons}
-												/>
-											</Button>
-										</SheetTrigger>
+										<Button
+											onClick={() => setSheetOpen(true)}
+											size="icon"
+											variant="ghost"
+										>
+											<HugeiconsIcon
+												className="size-4"
+												icon={Menu02FreeIcons}
+											/>
+										</Button>
 									</TooltipTrigger>
 									<TooltipContent align="end" side="bottom">
 										Previous conversations
@@ -258,6 +293,7 @@ export function AppNavbar() {
 					</>
 				)}
 			</div>
+			<ComposeDialog onOpenChange={setComposeOpen} open={composeOpen} />
 		</header>
 	);
 }

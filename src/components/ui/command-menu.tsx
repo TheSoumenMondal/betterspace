@@ -22,7 +22,7 @@ import {
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { AnimatePresence, motion } from "motion/react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTheme } from "next-themes";
 import * as React from "react";
 
@@ -271,6 +271,8 @@ function AdvancedMode({ onClose }: { onClose: () => void }) {
 /* ---------- Actions Mode ---------- */
 function ActionsMode({ runCommand }: { runCommand: (fn: () => void) => void }) {
 	const router = useRouter();
+	const pathname = usePathname();
+	const searchParams = useSearchParams();
 	const { setTheme } = useTheme();
 
 	return (
@@ -280,7 +282,13 @@ function ActionsMode({ runCommand }: { runCommand: (fn: () => void) => void }) {
 				<CommandEmpty>No actions found.</CommandEmpty>
 				<CommandGroup heading="Email">
 					<CommandItem
-						onSelect={() => runCommand(() => router.push("/inbox?compose=1"))}
+						onSelect={() =>
+							runCommand(() => {
+								const params = new URLSearchParams(searchParams.toString());
+								params.set("compose", "1");
+								router.push(`${pathname}?${params.toString()}`);
+							})
+						}
 					>
 						<HugeiconsIcon className="mr-1" icon={PencilEdit01Icon} size={8} />
 						<span className="font-medium font-sans text-xs">Compose Email</span>

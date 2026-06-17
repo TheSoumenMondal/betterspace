@@ -9,6 +9,8 @@ import {
 import { buildGmailRawMessage } from "@/server/gmail/mime";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import {
+	archiveMailInput,
+	archiveMailOutput,
 	createDraftMailInput,
 	createDraftMailOutput,
 	getAllMailsInput,
@@ -17,6 +19,10 @@ import {
 	searchMailsOutput,
 	sendMailInput,
 	sendMailOutput,
+	toggleStarInput,
+	toggleStarOutput,
+	trashMailInput,
+	trashMailOutput,
 } from "./model";
 
 const tags = ["gmail"];
@@ -104,6 +110,145 @@ export const gmailRoute = createTRPCRouter({
 				messageId: result.id ?? "",
 				threadId: result.threadId ?? "",
 			};
+		}),
+	toggleStar: protectedProcedure
+		.meta({
+			path: "gmail-toggleStar",
+			tags,
+			protectedProcedure: true,
+		})
+		.input(toggleStarInput)
+		.output(toggleStarOutput)
+		.mutation(async ({ ctx, input }) => {
+			const { messageId, starred } = input;
+			const gmailClient = corsair.withTenant(ctx.session.user.id);
+
+			await gmailClient.gmail.api.messages.modify({
+				userId: "me",
+				id: messageId,
+				addLabelIds: starred ? ["STARRED"] : [],
+				removeLabelIds: starred ? [] : ["STARRED"],
+			});
+
+			const entityResult = await ctx.db
+				.select()
+				.from(corsairEntities)
+				.where(
+					and(
+						eq(corsairEntities.entityId, messageId),
+						eq(corsairEntities.entityType, "messages"),
+					),
+				)
+				.limit(1);
+
+			if (entityResult.length > 0 && entityResult[0]) {
+				const entity = entityResult[0];
+				const data = entity.data as Record<string, unknown>;
+				let labelIds = (data.labelIds as string[]) || [];
+
+				if (starred && !labelIds.includes("STARRED")) {
+					labelIds.push("STARRED");
+				} else if (!starred && labelIds.includes("STARRED")) {
+					labelIds = labelIds.filter((id) => id !== "STARRED");
+				}
+
+				await ctx.db
+					.update(corsairEntities)
+					.set({ data: { ...data, labelIds } })
+					.where(eq(corsairEntities.id, entity.id));
+			}
+
+			return { success: true };
+		}),
+	trashMail: protectedProcedure
+		.meta({
+			path: "gmail-trashMail",
+			tags,
+			protectedProcedure: true,
+		})
+		.input(trashMailInput)
+		.output(trashMailOutput)
+		.mutation(async ({ ctx, input }) => {
+			const { messageId } = input;
+			const gmailClient = corsair.withTenant(ctx.session.user.id);
+
+			await gmailClient.gmail.api.messages.trash({
+				userId: "me",
+				id: messageId,
+			});
+
+			const entityResult = await ctx.db
+				.select()
+				.from(corsairEntities)
+				.where(
+					and(
+						eq(corsairEntities.entityId, messageId),
+						eq(corsairEntities.entityType, "messages"),
+					),
+				)
+				.limit(1);
+
+			if (entityResult.length > 0 && entityResult[0]) {
+				const entity = entityResult[0];
+				const data = entity.data as Record<string, unknown>;
+				let labelIds = (data.labelIds as string[]) || [];
+
+				labelIds = labelIds.filter((id) => id !== "INBOX");
+				if (!labelIds.includes("TRASH")) {
+					labelIds.push("TRASH");
+				}
+
+				await ctx.db
+					.update(corsairEntities)
+					.set({ data: { ...data, labelIds } })
+					.where(eq(corsairEntities.id, entity.id));
+			}
+
+			return { success: true };
+		}),
+	archiveMail: protectedProcedure
+		.meta({
+			path: "gmail-archiveMail",
+			tags,
+			protectedProcedure: true,
+		})
+		.input(archiveMailInput)
+		.output(archiveMailOutput)
+		.mutation(async ({ ctx, input }) => {
+			const { messageId } = input;
+			const gmailClient = corsair.withTenant(ctx.session.user.id);
+
+			await gmailClient.gmail.api.messages.modify({
+				userId: "me",
+				id: messageId,
+				removeLabelIds: ["INBOX"],
+			});
+
+			const entityResult = await ctx.db
+				.select()
+				.from(corsairEntities)
+				.where(
+					and(
+						eq(corsairEntities.entityId, messageId),
+						eq(corsairEntities.entityType, "messages"),
+					),
+				)
+				.limit(1);
+
+			if (entityResult.length > 0 && entityResult[0]) {
+				const entity = entityResult[0];
+				const data = entity.data as Record<string, unknown>;
+				const labelIds = ((data.labelIds as string[]) || []).filter(
+					(id) => id !== "INBOX",
+				);
+
+				await ctx.db
+					.update(corsairEntities)
+					.set({ data: { ...data, labelIds } })
+					.where(eq(corsairEntities.id, entity.id));
+			}
+
+			return { success: true };
 		}),
 	getAllMails: protectedProcedure
 		.input(getAllMailsInput)

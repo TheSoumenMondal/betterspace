@@ -16,6 +16,17 @@ import { useCallback, useEffect, useState } from "react";
 import { useInView } from "react-intersection-observer";
 import removeMarkdown from "remove-markdown";
 import { ReplySheet } from "@/components/features/inbox/reply-sheet";
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+	AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button-2";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -126,6 +137,69 @@ export function MailLayout({ labelId = "INBOX" }: { labelId?: string }) {
 	});
 	const inView = mobileInView || desktopInView;
 
+	const utils = api.useUtils();
+	const toggleStarMutation = api.gmail.toggleStar.useMutation({
+		onMutate: async ({ messageId, starred }) => {
+			await utils.gmail.getAllMails.cancel();
+			const queryParams = {
+				limit: 20,
+				labelId,
+				sort: sortOrder,
+				importance:
+					selectedImportances.length > 0 ? selectedImportances : undefined,
+				hasMeetingSignal: hasMeetingSignal || undefined,
+				hasDeadline: hasDeadline || undefined,
+				hasInvoice: hasInvoice || undefined,
+				hasAttachment: hasAttachment || undefined,
+			};
+			const previousData = utils.gmail.getAllMails.getInfiniteData(queryParams);
+
+			utils.gmail.getAllMails.setInfiniteData(queryParams, (old) => {
+				if (!old) return old;
+				return {
+					...old,
+					pages: old.pages.map((page) => ({
+						...page,
+						items: page.items.map((item: Record<string, unknown>) => {
+							if (item.id === messageId) {
+								const currentLabelIds = (item.labelIds as string[]) || [];
+								return {
+									...item,
+									labelIds: starred
+										? [...new Set([...currentLabelIds, "STARRED"])]
+										: currentLabelIds.filter((id: string) => id !== "STARRED"),
+								};
+							}
+							return item;
+						}),
+					})),
+				};
+			});
+
+			return { previousData, queryParams };
+		},
+		onError: (_err, _newTodo, context) => {
+			if (context?.previousData) {
+				utils.gmail.getAllMails.setInfiniteData(
+					context.queryParams,
+					context.previousData,
+				);
+			}
+		},
+		onSettled: () => {
+			utils.gmail.getAllMails.invalidate();
+		},
+	});
+
+	const handleToggleStar = (
+		e: React.MouseEvent,
+		messageId: string,
+		currentlyStarred: boolean,
+	) => {
+		e.stopPropagation();
+		toggleStarMutation.mutate({ messageId, starred: !currentlyStarred });
+	};
+
 	const {
 		data,
 		isLoading,
@@ -175,8 +249,76 @@ export function MailLayout({ labelId = "INBOX" }: { labelId?: string }) {
 		[searchParams, pathname, router],
 	);
 
-	const allMails = data?.pages.flatMap((page) => page.items) || [];
+	const removeMailOptimistically = async (messageId: string) => {
+		await utils.gmail.getAllMails.cancel();
+		const queryParams = {
+			limit: 20,
+			labelId,
+			sort: sortOrder,
+			importance:
+				selectedImportances.length > 0 ? selectedImportances : undefined,
+			hasMeetingSignal: hasMeetingSignal || undefined,
+			hasDeadline: hasDeadline || undefined,
+			hasInvoice: hasInvoice || undefined,
+			hasAttachment: hasAttachment || undefined,
+		};
+		const previousData = utils.gmail.getAllMails.getInfiniteData(queryParams);
 
+		utils.gmail.getAllMails.setInfiniteData(queryParams, (old) => {
+			if (!old) return old;
+			return {
+				...old,
+				pages: old.pages.map((page) => ({
+					...page,
+					items: page.items.filter(
+						(item: Record<string, unknown>) => item.id !== messageId,
+					),
+				})),
+			};
+		});
+
+		setSelectedMailId(null);
+		return { previousData, queryParams };
+	};
+
+	const trashMailMutation = api.gmail.trashMail.useMutation({
+		onMutate: async ({ messageId }) => removeMailOptimistically(messageId),
+		onError: (_err, _newTodo, context) => {
+			if (context?.previousData) {
+				utils.gmail.getAllMails.setInfiniteData(
+					context.queryParams,
+					context.previousData,
+				);
+			}
+		},
+		onSettled: () => {
+			utils.gmail.getAllMails.invalidate();
+		},
+	});
+
+	const archiveMailMutation = api.gmail.archiveMail.useMutation({
+		onMutate: async ({ messageId }) => removeMailOptimistically(messageId),
+		onError: (_err, _newTodo, context) => {
+			if (context?.previousData) {
+				utils.gmail.getAllMails.setInfiniteData(
+					context.queryParams,
+					context.previousData,
+				);
+			}
+		},
+		onSettled: () => {
+			utils.gmail.getAllMails.invalidate();
+		},
+	});
+
+	const allMails = Array.from(
+		new Map(
+			(data?.pages.flatMap((page) => page.items) || []).map((item) => [
+				item.id,
+				item,
+			]),
+		).values(),
+	);
 	const filteredData = allMails.filter((message: Record<string, unknown>) => {
 		if (filter === "all") return true;
 		const labelIds = (message.labelIds as string[]) || [];
@@ -228,12 +370,16 @@ export function MailLayout({ labelId = "INBOX" }: { labelId?: string }) {
 	let selectedCc = "";
 	let selectedDate = "Unknown Date";
 	let _isImportant = false;
+	let _isSelectedStarred = false;
 
 	if (selectedMail?.payload) {
 		const payload = selectedMail.payload as MessagePart;
 		selectedBody = getEmailBody(payload);
 		_isImportant = ((selectedMail.labelIds as string[]) || []).includes(
 			"IMPORTANT",
+		);
+		_isSelectedStarred = ((selectedMail.labelIds as string[]) || []).includes(
+			"STARRED",
 		);
 
 		if (payload.headers) {
@@ -523,8 +669,8 @@ export function MailLayout({ labelId = "INBOX" }: { labelId?: string }) {
 						const aiMetadata = message.aiMetadata as
 							| Record<string, unknown>
 							| undefined;
-						const importance = aiMetadata?.importance as string | undefined;
-						const priorityScore = aiMetadata?.priorityScore as
+						const _importance = aiMetadata?.importance as string | undefined;
+						const _priorityScore = aiMetadata?.priorityScore as
 							| number
 							| undefined;
 						const isMeeting = !!aiMetadata?.hasMeetingSignal;
@@ -533,27 +679,6 @@ export function MailLayout({ labelId = "INBOX" }: { labelId?: string }) {
 						const isAttachment = !!aiMetadata?.hasAttachment;
 
 						const customBadges = [];
-						if (priorityScore !== undefined) {
-							customBadges.push({
-								label: `Score: ${priorityScore}`,
-								color:
-									"border-gray-200 bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700",
-							});
-						}
-
-						if (importance === "high") {
-							customBadges.push({
-								label: "High Priority",
-								color:
-									"border-red-200 bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400 dark:border-red-500/30",
-							});
-						} else if (importance === "medium") {
-							customBadges.push({
-								label: "Medium",
-								color:
-									"border-orange-200 bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-400 dark:border-orange-500/30",
-							});
-						}
 
 						if (isMeeting)
 							customBadges.push({
@@ -676,12 +801,60 @@ export function MailLayout({ labelId = "INBOX" }: { labelId?: string }) {
 					>
 						<HugeiconsIcon icon={ArrowLeft02Icon} size={20} />
 					</Button>
-					<Button size="icon-sm" variant="ghost">
-						<HugeiconsIcon icon={Trash} />
-					</Button>
-					<Button size="icon-sm" variant="ghost">
-						<HugeiconsIcon icon={Archive03Icon} />
-					</Button>
+					<AlertDialog>
+						<AlertDialogTrigger asChild>
+							<Button size="icon-sm" variant="ghost">
+								<HugeiconsIcon icon={Trash} />
+							</Button>
+						</AlertDialogTrigger>
+						<AlertDialogContent>
+							<AlertDialogHeader>
+								<AlertDialogTitle>Delete Email</AlertDialogTitle>
+								<AlertDialogDescription>
+									Are you sure you want to move this email to the trash?
+								</AlertDialogDescription>
+							</AlertDialogHeader>
+							<AlertDialogFooter>
+								<AlertDialogCancel>Cancel</AlertDialogCancel>
+								<AlertDialogAction
+									onClick={() => {
+										if (selectedMailId) {
+											trashMailMutation.mutate({ messageId: selectedMailId });
+										}
+									}}
+								>
+									Delete
+								</AlertDialogAction>
+							</AlertDialogFooter>
+						</AlertDialogContent>
+					</AlertDialog>
+					<AlertDialog>
+						<AlertDialogTrigger asChild>
+							<Button size="icon-sm" variant="ghost">
+								<HugeiconsIcon icon={Archive03Icon} />
+							</Button>
+						</AlertDialogTrigger>
+						<AlertDialogContent>
+							<AlertDialogHeader>
+								<AlertDialogTitle>Archive Email</AlertDialogTitle>
+								<AlertDialogDescription>
+									Are you sure you want to archive this email?
+								</AlertDialogDescription>
+							</AlertDialogHeader>
+							<AlertDialogFooter>
+								<AlertDialogCancel>Cancel</AlertDialogCancel>
+								<AlertDialogAction
+									onClick={() => {
+										if (selectedMailId) {
+											archiveMailMutation.mutate({ messageId: selectedMailId });
+										}
+									}}
+								>
+									Archive
+								</AlertDialogAction>
+							</AlertDialogFooter>
+						</AlertDialogContent>
+					</AlertDialog>
 				</div>
 			</div>
 
@@ -717,8 +890,26 @@ export function MailLayout({ labelId = "INBOX" }: { labelId?: string }) {
 						</div>
 					</div>
 					<div className="flex items-center gap-1">
-						<Button size="icon-sm" variant="ghost">
-							<HugeiconsIcon icon={StarIcon} />
+						<Button
+							onClick={(e) =>
+								handleToggleStar(
+									e,
+									selectedMailId as string,
+									_isSelectedStarred,
+								)
+							}
+							size="icon-sm"
+							variant="ghost"
+						>
+							<HugeiconsIcon
+								className={cn(
+									_isSelectedStarred
+										? "fill-yellow-400 text-yellow-400"
+										: "text-muted-foreground hover:text-yellow-500",
+								)}
+								icon={StarIcon}
+								variant={_isSelectedStarred ? "solid" : "stroke"}
+							/>
 						</Button>
 					</div>
 				</div>

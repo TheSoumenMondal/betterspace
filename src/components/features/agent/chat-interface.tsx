@@ -86,7 +86,7 @@ export function ChatInterface({ conversationId }: { conversationId?: string }) {
 										<div
 											className={cn(
 												buttonVariants({ variant: "info", animation: "none" }),
-												"h-auto max-w-[80%] cursor-default whitespace-normal text-wrap rounded-xl px-3 py-2 text-left font-geist-sans text-sm hover:brightness-100 active:brightness-100",
+												"h-auto max-w-[80%] cursor-text select-text whitespace-normal text-wrap rounded-xl px-3 py-2 text-left font-geist-sans text-sm hover:brightness-100 active:brightness-100",
 											)}
 										>
 											{m.content}

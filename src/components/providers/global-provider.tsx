@@ -1,6 +1,7 @@
 "use client";
 
 import type React from "react";
+import { Toaster } from "@/components/ui/sonner";
 import { TRPCReactProvider } from "@/trpc/react";
 import { NavSlotProvider } from "../features/sidebar/navslot-context";
 import { ThemeProvider } from "./theme-provider";
@@ -20,6 +21,7 @@ const GlobalProviderWrapper = ({ children }: Props) => {
 			<TRPCReactProvider>
 				<NavSlotProvider>{children}</NavSlotProvider>
 			</TRPCReactProvider>
+			<Toaster />
 		</ThemeProvider>
 	);
 };

@@ -5,9 +5,9 @@ import { SearchIcon } from "lucide-react";
 import type * as React from "react";
 import {
 	Dialog,
-	DialogContent,
 	DialogDescription,
 	DialogHeader,
+	DialogPopup,
 	DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
@@ -43,18 +43,22 @@ function CommandDialog({
 }) {
 	return (
 		<Dialog {...props}>
-			<DialogHeader className="sr-only">
-				<DialogTitle>{title}</DialogTitle>
-				<DialogDescription>{description}</DialogDescription>
-			</DialogHeader>
-			<DialogContent
-				className={cn("overflow-hidden p-0 sm:max-w-150", className)}
+			<DialogPopup
+				className={cn(
+					"overflow-hidden border-0 bg-transparent p-0 shadow-none sm:max-w-150",
+					className,
+				)}
+				containerClassName="p-0 gap-0"
 				showCloseButton={showCloseButton}
 			>
+				<DialogHeader className="sr-only">
+					<DialogTitle>{title}</DialogTitle>
+					<DialogDescription>{description}</DialogDescription>
+				</DialogHeader>
 				<Command className="**:data-[slot=command-input-wrapper]:h-12 **:[[cmdk-group-heading]]:px-2 **:[[cmdk-group-heading]]:font-medium **:[[cmdk-group-heading]]:text-muted-foreground **:[[cmdk-group]:not([hidden])_~[cmdk-group]]:pt-0 **:[[cmdk-group]]:px-2 **:[[cmdk-input-wrapper]_svg]:h-5 **:[[cmdk-input-wrapper]_svg]:w-5 **:[[cmdk-input]]:h-12 **:[[cmdk-item]]:px-2 **:[[cmdk-item]_svg]:h-5 **:[[cmdk-item]_svg]:w-5">
 					{children}
 				</Command>
-			</DialogContent>
+			</DialogPopup>
 		</Dialog>
 	);
 }

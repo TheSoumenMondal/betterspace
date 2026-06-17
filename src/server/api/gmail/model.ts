@@ -89,3 +89,28 @@ export const sendMailOutput = z.object({
 	messageId: z.string().describe("The Gmail message ID of the sent email"),
 	threadId: z.string().describe("The Gmail thread ID of the sent email"),
 });
+
+export const toggleStarInput = z.object({
+	messageId: z.string().describe("The ID of the message to star/unstar"),
+	starred: z.boolean().describe("Whether to star or unstar the message"),
+});
+
+export const toggleStarOutput = z.object({
+	success: z.boolean().describe("Whether the operation was successful"),
+});
+
+export const trashMailInput = z.object({
+	messageId: z.string().describe("The ID of the message to move to trash"),
+});
+
+export const trashMailOutput = z.object({
+	success: z.boolean().describe("Whether the operation was successful"),
+});
+
+export const archiveMailInput = z.object({
+	messageId: z.string().describe("The ID of the message to archive"),
+});
+
+export const archiveMailOutput = z.object({
+	success: z.boolean().describe("Whether the operation was successful"),
+});

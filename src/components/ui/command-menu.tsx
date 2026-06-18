@@ -474,7 +474,11 @@ export function CommandMenu() {
 												? mm.color
 												: ""
 										}
-										icon={mm.icon}
+										icon={
+											mm.icon as React.ComponentProps<
+												typeof HugeiconsIcon
+											>["icon"]
+										}
 										size={14}
 									/>
 									{mm.label}

@@ -3,7 +3,9 @@
 import { EyeClosedFreeIcons, EyeIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import Link from "next/link";
-import React, { useState } from "react";
+import { useRouter } from "next/navigation";
+import type React from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import AppLogo from "@/components/shared/app-logo";
 import { Button } from "@/components/ui/button-2";
@@ -19,18 +21,21 @@ import { authClient } from "@/server/better-auth/client";
 
 const SignupPageComponent = () => {
 	const [showPassword, setShowPassword] = useState(false);
-	const [signInWithGoogle, setSignInWithGoogle] =
-		React.useState<boolean>(false);
+	const [name, setName] = useState("");
+	const [email, setEmail] = useState("");
+	const [password, setPassword] = useState("");
+	const [loading, setLoading] = useState(false);
+	const [signInWithGoogle, setSignInWithGoogle] = useState<boolean>(false);
+	const router = useRouter();
 	const handleSignInWithGoogle = async () => {
 		try {
 			setSignInWithGoogle(true);
 			const { data, error } = await authClient.signIn.social({
 				provider: "google",
+				callbackURL: "/inbox",
 			});
-			if (data) {
-				console.log(data);
-			} else {
-				console.log(error);
+			if (error) {
+				toast.error("Error", { description: error.message });
 			}
 		} catch (error) {
 			toast.error("Error", {
@@ -39,6 +44,35 @@ const SignupPageComponent = () => {
 			});
 		} finally {
 			setSignInWithGoogle(false);
+		}
+	};
+
+	const handleSignUpWithEmail = async (e: React.FormEvent) => {
+		e.preventDefault();
+		if (!name || !email || !password) {
+			toast.error("Error", { description: "Please fill in all fields" });
+			return;
+		}
+		try {
+			setLoading(true);
+			const { data, error } = await authClient.signUp.email({
+				name,
+				email,
+				password,
+			});
+			if (error) {
+				toast.error("Error", { description: error.message });
+			} else {
+				toast.success("Account created! Please verify your email.");
+				router.push(`/auth/verify?email=${encodeURIComponent(email)}`);
+			}
+		} catch (error) {
+			toast.error("Error", {
+				description:
+					error instanceof Error ? error.message : "Something went wrong",
+			});
+		} finally {
+			setLoading(false);
 		}
 	};
 	return (
@@ -97,24 +131,32 @@ const SignupPageComponent = () => {
 				<div className="text-center text-muted-foreground text-sm">or</div>
 				<div className="h-0.5 border-card border-b bg-border"></div>
 			</div>
-			<form action="#" className="space-y-5">
+			<form className="space-y-5" onSubmit={handleSignUpWithEmail}>
 				<div className="space-y-2">
 					<div className="space-y-2">
 						<Label htmlFor="name">Name</Label>
 						<Input
+							disabled={loading}
 							id="name"
 							name="name"
+							onChange={(e) => setName(e.target.value)}
 							placeholder="Enter your name"
+							required
 							type="text"
+							value={name}
 						/>
 					</div>
 					<div className="space-y-2">
 						<Label htmlFor="email">Email</Label>
 						<Input
+							disabled={loading}
 							id="email"
 							name="email"
+							onChange={(e) => setEmail(e.target.value)}
 							placeholder="Enter your email"
+							required
 							type="email"
+							value={email}
 						/>
 					</div>
 					<div className="space-y-2">
@@ -130,10 +172,14 @@ const SignupPageComponent = () => {
 								/>
 							</InputGroupAddon>
 							<InputGroupInput
+								disabled={loading}
 								id="password"
 								name="password"
+								onChange={(e) => setPassword(e.target.value)}
 								placeholder="Enter your password"
+								required
 								type={showPassword ? "text" : "password"}
+								value={password}
 							/>
 						</InputGroup>
 					</div>
@@ -141,10 +187,12 @@ const SignupPageComponent = () => {
 				<Button
 					animation="none"
 					className="w-full rounded-sm py-2"
+					disabled={loading}
 					size="lg"
+					type="submit"
 					variant="info"
 				>
-					Sign up with email
+					{loading ? <Spinner /> : "Sign up with email"}
 				</Button>
 			</form>
 			<div className="pt-5 text-muted-foreground text-xs">

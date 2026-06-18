@@ -1,14 +1,24 @@
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import type * as React from "react";
 import { AppSidebar } from "@/components/features/sidebar/app-sidebar";
 import { AppNavbar } from "@/components/features/sidebar/navbar";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { getSession } from "@/server/better-auth/server";
 
 type Props = {
 	children: React.ReactNode;
 };
 
 const layout = async ({ children }: Props) => {
+	const session = await getSession();
+	if (
+		!(session?.user as { hasCompletedOnboarding?: boolean })
+			?.hasCompletedOnboarding
+	) {
+		redirect("/onboarding");
+	}
+
 	const cookieStore = await cookies();
 	const defaultOpen = cookieStore.get("sidebar_state")?.value !== "false";
 

@@ -22,6 +22,9 @@ export const env = createEnv({
 		APP_URL: z.url(),
 		OPENAI_API_KEY: z.string(),
 		GOOGLE_PUBSUB_TOPIC_ID: z.string(),
+		RESEND_API_KEY: z.string(),
+		VERCEL_URL: z.string(),
+		PORT: z.string(),
 	},
 
 	/**
@@ -49,6 +52,9 @@ export const env = createEnv({
 		APP_URL: process.env.APP_URL,
 		OPENAI_API_KEY: process.env.OPENAI_API_KEY,
 		GOOGLE_PUBSUB_TOPIC_ID: process.env.GOOGLE_PUBSUB_TOPIC_ID,
+		RESEND_API_KEY: process.env.RESEND_API_KEY,
+		VERCEL_URL: process.env.VERCEL_URL,
+		PORT: process.env.PORT,
 	},
 	/**
 	 * Run `build` or `dev` with `SKIP_ENV_VALIDATION` to skip env validation. This is especially

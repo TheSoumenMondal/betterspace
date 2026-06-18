@@ -3,12 +3,13 @@ import { and, eq } from "drizzle-orm";
 import type { NextRequest } from "next/server";
 import { after, NextResponse } from "next/server";
 import { corsair } from "@/corsair";
+import { env } from "@/env";
 import { inngest } from "@/inngest/client";
 import { auth } from "@/server/better-auth";
 import { db } from "@/server/db";
 import { corsairAccounts, corsairIntegrations } from "@/server/db/schema";
 
-const REDIRECT_URI = `${process.env.APP_URL}/api/auth/google/callback`;
+const REDIRECT_URI = `${env.APP_URL}/api/auth/google/callback`;
 
 function queueInitialSync(input: {
 	plugin: string;
@@ -60,7 +61,7 @@ export async function GET(request: NextRequest) {
 		const session = await auth.api.getSession({ headers: request.headers });
 		if (!session) {
 			const response = NextResponse.redirect(
-				new URL("/onboarding?error=unauthorized", request.url),
+				new URL("/onboarding?error=unauthorized", env.APP_URL),
 			);
 			response.cookies.delete("oauth_state");
 			return response;
@@ -95,7 +96,7 @@ export async function GET(request: NextRequest) {
 		}
 
 		const response = NextResponse.redirect(
-			new URL(`/onboarding?connected=${result.plugin}`, request.url),
+			new URL(`/onboarding?connected=${result.plugin}`, env.APP_URL),
 		);
 
 		response.cookies.delete("oauth_state");
@@ -104,7 +105,7 @@ export async function GET(request: NextRequest) {
 		const message = error instanceof Error ? error.message : String(error);
 		console.error("[oauth/callback] Error:", message, error);
 		const response = new NextResponse(
-			process.env.NODE_ENV === "development"
+			env.NODE_ENV === "development"
 				? `OAuth failed: ${message}`
 				: "OAuth failed.",
 			{ status: 500 },

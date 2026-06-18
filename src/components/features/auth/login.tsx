@@ -3,7 +3,9 @@
 import { EyeClosedFreeIcons, EyeIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import Link from "next/link";
-import React from "react";
+import { useRouter } from "next/navigation";
+import type React from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import AppLogo from "@/components/shared/app-logo";
 import { Button } from "@/components/ui/button-2";
@@ -18,19 +20,21 @@ import { Spinner } from "@/components/ui/spinner";
 import { authClient } from "@/server/better-auth/client";
 
 const LoginPageComponent = () => {
-	const [showPassword, setShowPassword] = React.useState<boolean>(false);
-	const [signInWithGoogle, setSignInWithGoogle] =
-		React.useState<boolean>(false);
+	const [showPassword, setShowPassword] = useState(false);
+	const [email, setEmail] = useState("");
+	const [password, setPassword] = useState("");
+	const [loading, setLoading] = useState(false);
+	const [signInWithGoogle, setSignInWithGoogle] = useState<boolean>(false);
+	const router = useRouter();
 	const handleSignInWithGoogle = async () => {
 		try {
 			setSignInWithGoogle(true);
 			const { data, error } = await authClient.signIn.social({
 				provider: "google",
+				callbackURL: "/inbox",
 			});
-			if (data) {
-				console.log(data);
-			} else {
-				console.log(error);
+			if (error) {
+				toast.error("Error", { description: error.message });
 			}
 		} catch (error) {
 			toast.error("Error", {
@@ -39,6 +43,53 @@ const LoginPageComponent = () => {
 			});
 		} finally {
 			setSignInWithGoogle(false);
+		}
+	};
+
+	const handleSignInWithEmail = async (e: React.FormEvent) => {
+		e.preventDefault();
+		if (!email || !password) {
+			toast.error("Error", { description: "Please fill in all fields" });
+			return;
+		}
+		try {
+			setLoading(true);
+			const { data, error } = await authClient.signIn.email({
+				email,
+				password,
+			});
+			if (error) {
+				if (
+					error.code === "EMAIL_NOT_VERIFIED" ||
+					error.message?.includes("verify")
+				) {
+					toast.info("Please verify your email first.");
+					await authClient.emailOtp.sendVerificationOtp({
+						email,
+						type: "email-verification",
+					});
+					router.push(`/auth/verify?email=${encodeURIComponent(email)}`);
+					return;
+				}
+				toast.error("Error", { description: error.message });
+			} else {
+				toast.success("Logged in successfully!");
+				if (
+					(data?.user as { hasCompletedOnboarding?: boolean })
+						?.hasCompletedOnboarding
+				) {
+					router.push("/inbox");
+				} else {
+					router.push("/onboarding");
+				}
+			}
+		} catch (error) {
+			toast.error("Error", {
+				description:
+					error instanceof Error ? error.message : "Something went wrong",
+			});
+		} finally {
+			setLoading(false);
 		}
 	};
 
@@ -98,15 +149,19 @@ const LoginPageComponent = () => {
 				<div className="text-center text-muted-foreground text-sm">or</div>
 				<div className="h-0.5 border-card border-b bg-border"></div>
 			</div>
-			<form action="#" className="space-y-5">
+			<form className="space-y-5" onSubmit={handleSignInWithEmail}>
 				<div className="space-y-2">
 					<div className="space-y-2">
 						<Label htmlFor="email">Email</Label>
 						<Input
+							disabled={loading}
 							id="email"
 							name="email"
+							onChange={(e) => setEmail(e.target.value)}
 							placeholder="Enter your email"
-							type="text"
+							required
+							type="email"
+							value={email}
 						/>
 					</div>
 					<div className="space-y-2">
@@ -122,10 +177,14 @@ const LoginPageComponent = () => {
 								/>
 							</InputGroupAddon>
 							<InputGroupInput
+								disabled={loading}
 								id="password"
 								name="password"
+								onChange={(e) => setPassword(e.target.value)}
 								placeholder="Enter your password"
+								required
 								type={showPassword ? "text" : "password"}
+								value={password}
 							/>
 						</InputGroup>
 					</div>
@@ -133,10 +192,12 @@ const LoginPageComponent = () => {
 				<Button
 					animation="none"
 					className="w-full rounded-sm py-2"
+					disabled={loading}
 					size="lg"
+					type="submit"
 					variant="info"
 				>
-					Login with email
+					{loading ? <Spinner /> : "Login with email"}
 				</Button>
 			</form>
 			<div className="pt-5 text-muted-foreground text-xs">

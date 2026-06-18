@@ -996,7 +996,6 @@ export function MailLayout({ labelId = "INBOX" }: { labelId?: string }) {
 										: "text-muted-foreground hover:text-yellow-500",
 								)}
 								icon={StarIcon}
-								variant={_isSelectedStarred ? "solid" : "stroke"}
 							/>
 						</Button>
 					</div>

@@ -47,7 +47,7 @@ const MODES: Mode[] = ["search", "advanced", "actions"];
 
 const MODE_META: Record<
 	Mode,
-	{ label: string; icon: React.ElementType; color: string }
+	{ label: string; icon: React.ElementType | object; color: string }
 > = {
 	search: { label: "Quick Search", icon: Search01Icon, color: "text-blue-400" },
 	advanced: {
@@ -227,7 +227,9 @@ function AdvancedMode({ onClose }: { onClose: () => void }) {
 									const fromH = getHeader(mail.payload, "From");
 									const subjectH = getHeader(mail.payload, "Subject");
 									const fromName =
-										fromH.split("<")[0].trim().replace(/"/g, "") || fromH;
+										fromH?.split("<")[0]?.trim()?.replace(/"/g, "") ||
+										fromH ||
+										"Unknown";
 									const initial = fromName.charAt(0).toUpperCase();
 
 									return (
@@ -377,7 +379,9 @@ export function CommandMenu() {
 	const [mode, setMode] = React.useState<Mode>("search");
 	const router = useRouter();
 	const { data: session } = authClient.useSession();
-	const isFreeUser = session?.user?.plan === "free" || !session?.user?.plan;
+	const isFreeUser =
+		(session?.user as { plan?: string })?.plan === "free" ||
+		!(session?.user as { plan?: string })?.plan;
 
 	// Open/close ⌘K
 	React.useEffect(() => {

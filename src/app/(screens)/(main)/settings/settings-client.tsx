@@ -45,10 +45,6 @@ export function SettingsClient({ user, integrations }: SettingsClientProps) {
 			title: "Corsair Integration",
 			desc: "Manage your connection to Gmail and Google Calendar.",
 		},
-		preferences: {
-			title: "Workflow Settings",
-			desc: "Configure how you interact with Betterspace.",
-		},
 	};
 
 	return (
@@ -66,7 +62,6 @@ export function SettingsClient({ user, integrations }: SettingsClientProps) {
 					<TabsList>
 						<TabsTrigger value="general">General</TabsTrigger>
 						<TabsTrigger value="integrations">Integrations</TabsTrigger>
-						<TabsTrigger value="preferences">Preferences</TabsTrigger>
 					</TabsList>
 				</Tabs>
 			</div>
@@ -176,133 +171,6 @@ export function SettingsClient({ user, integrations }: SettingsClientProps) {
 								>
 									{integrations.calendarConnected ? "Connected" : "Connect"}
 								</Button>
-							</div>
-						</TabsContent>
-
-						<TabsContent className="mt-0 space-y-8" value="preferences">
-							<div className="flex items-center justify-between">
-								<div className="space-y-0.5">
-									<Label className="font-copper-bt-regular text-base">
-										Advance Keyboard Shortcuts
-									</Label>
-									<p className="font-geist-sans text-muted-foreground text-sm">
-										Enable Superhuman-style keyboard shortcuts across the app.
-									</p>
-								</div>
-								<Switch
-									defaultChecked={user.isPremium}
-									disabled={!user.isPremium}
-									id="keyboard-shortcuts"
-								/>
-							</div>
-							<div className="flex items-center justify-between">
-								<div className="space-y-0.5">
-									<Label className="font-copper-bt-regular text-base">
-										AI Auto-Tagging
-									</Label>
-									<p className="font-geist-sans text-muted-foreground text-sm">
-										Automatically tag incoming emails for priority and
-										importance.
-									</p>
-								</div>
-								<Switch
-									defaultChecked={user.isPremium}
-									disabled={!user.isPremium}
-									id="ai-tagging"
-								/>
-							</div>
-							<div className="flex items-center justify-between">
-								<div className="space-y-0.5">
-									<Label className="font-copper-bt-regular text-base">
-										Auto-generate Summaries
-									</Label>
-									<p className="font-geist-sans text-muted-foreground text-sm">
-										Let AI generate quick summaries for long email threads.
-									</p>
-								</div>
-								<Switch
-									defaultChecked={user.isPremium}
-									disabled={!user.isPremium}
-									id="ai-summaries"
-								/>
-							</div>
-							<div className="flex items-center justify-between">
-								<div className="space-y-0.5">
-									<Label className="font-copper-bt-regular text-base">
-										Extract Action Items
-									</Label>
-									<p className="font-geist-sans text-muted-foreground text-sm">
-										Automatically identify and list action items from emails.
-									</p>
-								</div>
-								<Switch
-									defaultChecked={user.isPremium}
-									disabled={!user.isPremium}
-									id="ai-action-items"
-								/>
-							</div>
-							<div className="flex items-center justify-between">
-								<div className="space-y-0.5">
-									<Label className="font-copper-bt-regular text-base">
-										Extract Entities
-									</Label>
-									<p className="font-geist-sans text-muted-foreground text-sm">
-										Detect persons, organizations, locations, and dates.
-									</p>
-								</div>
-								<Switch
-									defaultChecked={user.isPremium}
-									disabled={!user.isPremium}
-									id="ai-entities"
-								/>
-							</div>
-							<div className="flex items-center justify-between">
-								<div className="space-y-0.5">
-									<Label className="font-copper-bt-regular text-base">
-										Flag Meeting Signals
-									</Label>
-									<p className="font-geist-sans text-muted-foreground text-sm">
-										Highlight emails that look like meeting requests or
-										scheduling.
-									</p>
-								</div>
-								<Switch
-									defaultChecked={user.isPremium}
-									disabled={!user.isPremium}
-									id="ai-meetings"
-								/>
-							</div>
-							<div className="flex items-center justify-between">
-								<div className="space-y-0.5">
-									<Label className="font-copper-bt-regular text-base">
-										Flag Deadlines & Invoices
-									</Label>
-									<p className="font-geist-sans text-muted-foreground text-sm">
-										Highlight emails containing important deadlines or payment
-										invoices.
-									</p>
-								</div>
-								<Switch
-									defaultChecked={user.isPremium}
-									disabled={!user.isPremium}
-									id="ai-deadlines"
-								/>
-							</div>
-							<div className="flex items-center justify-between">
-								<div className="space-y-0.5">
-									<Label className="font-copper-bt-regular text-base">
-										Direct Search from gmail
-									</Label>
-									<p className="font-geist-sans text-muted-foreground text-sm">
-										Local data may not be up-to-date. Search directly from Gmail
-										for the most accurate results.
-									</p>
-								</div>
-								<Switch
-									defaultChecked={user.isPremium}
-									disabled={!user.isPremium}
-									id="direct-search"
-								/>
 							</div>
 						</TabsContent>
 					</Tabs>

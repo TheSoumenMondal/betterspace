@@ -1,12 +1,4 @@
-import {
-	Bold,
-	ImageIcon,
-	Italic,
-	List,
-	Paperclip,
-	Sparkles,
-	X,
-} from "lucide-react";
+import { Sparkles, X } from "lucide-react";
 import React, { useState } from "react";
 import { toast } from "sonner";
 
@@ -172,43 +164,6 @@ export function ReplySheet({
 
 				<div className="flex items-center justify-between border-t bg-muted/10 px-4 py-3">
 					<div className="flex items-center gap-1">
-						<Button
-							className="h-8 w-8 text-muted-foreground hover:text-foreground"
-							size="icon-sm"
-							variant="ghost"
-						>
-							<Paperclip className="size-4" />
-						</Button>
-						<Button
-							className="h-8 w-8 text-muted-foreground hover:text-foreground"
-							size="icon-sm"
-							variant="ghost"
-						>
-							<ImageIcon className="size-4" />
-						</Button>
-						<div className="mx-2 h-4 w-px bg-border" />
-						<Button
-							className="h-8 w-8 text-muted-foreground hover:text-foreground"
-							size="icon-sm"
-							variant="ghost"
-						>
-							<Bold className="size-4" />
-						</Button>
-						<Button
-							className="h-8 w-8 text-muted-foreground hover:text-foreground"
-							size="icon-sm"
-							variant="ghost"
-						>
-							<Italic className="size-4" />
-						</Button>
-						<Button
-							className="hidden h-8 w-8 text-muted-foreground hover:text-foreground sm:flex"
-							size="icon-sm"
-							variant="ghost"
-						>
-							<List className="size-4" />
-						</Button>
-						<div className="mx-2 h-4 w-px bg-border" />
 						<Button
 							className="hidden h-8 items-center gap-1 px-2 text-muted-foreground hover:text-foreground sm:flex"
 							disabled={generateReplyMutation.isPending}

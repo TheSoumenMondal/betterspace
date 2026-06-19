@@ -222,3 +222,30 @@ export async function ExtraInformationFromEmail(text: string) {
 		embedding,
 	};
 }
+
+export async function generateEmailReply(context: string) {
+	if (!context.trim()) {
+		return "";
+	}
+
+	const tokenSafeText =
+		context.length > 6000 ? context.slice(0, 6000) : context;
+
+	const response = await openai.chat.completions.create({
+		model: "gpt-4o-mini",
+		messages: [
+			{
+				role: "system",
+				content:
+					"You are an intelligent email assistant. Generate a professional and concise reply to the following email. Only output the body of the reply.",
+			},
+			{
+				role: "user",
+				content: tokenSafeText,
+			},
+		],
+		max_completion_tokens: 500,
+	});
+
+	return response.choices[0]?.message.content?.trim() ?? "";
+}

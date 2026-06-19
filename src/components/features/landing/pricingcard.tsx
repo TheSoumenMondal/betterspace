@@ -3,6 +3,7 @@ import { Cancel01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import NumberFlow from "@number-flow/react";
 import { motion } from "motion/react";
+import { toast } from "sonner";
 import { PLANS } from "@/lib/plans";
 
 const FEATURE_LABELS = [
@@ -140,19 +141,39 @@ export const PricingCard = () => {
 									isPro ? "text-background/50" : "text-muted-foreground/60"
 								}`}
 							>
-								{isFree ? "forever free" : "per month · via Polar"}
+								{isFree ? "forever free" : "per month"}
 							</p>
 						</div>
-						<a
-							className={`mb-6 inline-flex h-10 w-full items-center justify-center rounded-xl font-semibold text-sm transition-all duration-200 ${
-								isPro
-									? "bg-background text-foreground hover:bg-background/90"
-									: "border border-foreground/15 bg-transparent text-foreground hover:bg-muted/60"
-							}`}
-							href="/auth/login"
-						>
-							{isFree ? "Get Started Free" : `Upgrade to ${plan.name}`}
-						</a>
+						{isFree ? (
+							<a
+								className={`mb-6 inline-flex h-10 w-full items-center justify-center rounded-xl font-semibold text-sm transition-all duration-200 ${
+									isPro
+										? "bg-background text-foreground hover:bg-background/90"
+										: "border border-foreground/15 bg-transparent text-foreground hover:bg-muted/60"
+								}`}
+								href="/auth/login"
+							>
+								Get Started Free
+							</a>
+						) : (
+							<button
+								className={`mb-6 inline-flex h-10 w-full items-center justify-center rounded-xl font-semibold text-sm transition-all duration-200 ${
+									isPro
+										? "bg-background text-foreground hover:bg-background/90"
+										: "border border-foreground/15 bg-transparent text-foreground hover:bg-muted/60"
+								}`}
+								onClick={(e) => {
+									e.preventDefault();
+									toast.info("This app is currently in development phase.", {
+										description:
+											"To access all features, please get admin approval.",
+									});
+								}}
+								type="button"
+							>
+								Upgrade to {plan.name}
+							</button>
+						)}
 						<div
 							className={`mb-5 h-px ${isPro ? "bg-background/15" : "bg-border"}`}
 						/>

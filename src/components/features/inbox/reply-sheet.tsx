@@ -1,4 +1,12 @@
-import { Bold, ImageIcon, Italic, List, Paperclip, X } from "lucide-react";
+import {
+	Bold,
+	ImageIcon,
+	Italic,
+	List,
+	Paperclip,
+	Sparkles,
+	X,
+} from "lucide-react";
 import React, { useState } from "react";
 import { toast } from "sonner";
 
@@ -14,6 +22,7 @@ interface ReplySheetProps {
 	toName: string;
 	subject: string;
 	threadId?: string;
+	emailContext?: string;
 	trigger: React.ReactNode;
 }
 
@@ -22,6 +31,7 @@ export function ReplySheet({
 	toName,
 	subject,
 	threadId,
+	emailContext,
 	trigger,
 }: ReplySheetProps) {
 	const [isOpen, setIsOpen] = useState(false);
@@ -38,6 +48,24 @@ export function ReplySheet({
 			toast.error(`Failed to send reply: ${error.message}`);
 		},
 	});
+
+	const generateReplyMutation = api.gmail.generateReply.useMutation({
+		onSuccess: (data) => {
+			setReplyBody(data.generatedReply);
+			toast.success("Reply generated successfully");
+		},
+		onError: (error) => {
+			toast.error(`Failed to generate reply: ${error.message}`);
+		},
+	});
+
+	const handleGenerateReply = () => {
+		if (!emailContext) {
+			toast.error("No email context available to generate reply.");
+			return;
+		}
+		generateReplyMutation.mutate({ emailContext });
+	};
 
 	const handleSendReply = () => {
 		if (!replyBody.trim()) {
@@ -179,6 +207,22 @@ export function ReplySheet({
 							variant="ghost"
 						>
 							<List className="size-4" />
+						</Button>
+						<div className="mx-2 h-4 w-px bg-border" />
+						<Button
+							className="hidden h-8 items-center gap-1 px-2 text-muted-foreground hover:text-foreground sm:flex"
+							disabled={generateReplyMutation.isPending}
+							onClick={handleGenerateReply}
+							size="sm"
+							title="Generate Reply with AI"
+							variant="ghost"
+						>
+							<Sparkles className="size-4 text-primary" />
+							<span className="text-xs">
+								{generateReplyMutation.isPending
+									? "Generating..."
+									: "Generate Reply with AI"}
+							</span>
 						</Button>
 					</div>
 					<div className="flex items-center gap-3">

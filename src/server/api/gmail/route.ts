@@ -1,5 +1,6 @@
 import { and, asc, desc, eq, inArray, type SQL, sql } from "drizzle-orm";
 import { corsair } from "@/corsair";
+import { generateEmailReply } from "@/lib/openai";
 import {
 	corsairAccounts,
 	corsairEntities,
@@ -13,6 +14,8 @@ import {
 	archiveMailOutput,
 	createDraftMailInput,
 	createDraftMailOutput,
+	generateReplyInput,
+	generateReplyOutput,
 	getAllMailsInput,
 	getAllMailsOutput,
 	getUnreadCountOutput,
@@ -600,5 +603,14 @@ export const gmailRoute = createTRPCRouter({
 				items: validMessages,
 				nextCursor: response.nextPageToken ?? null,
 			};
+		}),
+
+	generateReply: protectedProcedure
+		.input(generateReplyInput)
+		.output(generateReplyOutput)
+		.mutation(async ({ input }) => {
+			const { emailContext } = input;
+			const generatedReply = await generateEmailReply(emailContext);
+			return { generatedReply };
 		}),
 });

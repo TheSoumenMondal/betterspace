@@ -127,3 +127,11 @@ export const markAsReadInput = z.object({
 export const markAsReadOutput = z.object({
 	success: z.boolean().describe("Whether the operation was successful"),
 });
+
+export const generateReplyInput = z.object({
+	emailContext: z.string().describe("The email text to generate a reply for"),
+});
+
+export const generateReplyOutput = z.object({
+	generatedReply: z.string().describe("The AI generated reply text"),
+});

@@ -30,9 +30,9 @@ const SignupPageComponent = () => {
 	const handleSignInWithGoogle = async () => {
 		try {
 			setSignInWithGoogle(true);
-			const { data, error } = await authClient.signIn.social({
+			const { error } = await authClient.signIn.social({
 				provider: "google",
-				callbackURL: "/inbox",
+				callbackURL: "/space",
 			});
 			if (error) {
 				toast.error("Error", { description: error.message });
@@ -47,7 +47,7 @@ const SignupPageComponent = () => {
 		}
 	};
 
-	const handleSignUpWithEmail = async (e: React.FormEvent) => {
+	const handleSignUpWithEmail = async (e: React.ChangeEvent) => {
 		e.preventDefault();
 		if (!name || !email || !password) {
 			toast.error("Error", { description: "Please fill in all fields" });
@@ -55,7 +55,7 @@ const SignupPageComponent = () => {
 		}
 		try {
 			setLoading(true);
-			const { data, error } = await authClient.signUp.email({
+			const { error } = await authClient.signUp.email({
 				name,
 				email,
 				password,

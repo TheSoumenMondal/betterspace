@@ -29,9 +29,9 @@ const LoginPageComponent = () => {
 	const handleSignInWithGoogle = async () => {
 		try {
 			setSignInWithGoogle(true);
-			const { data, error } = await authClient.signIn.social({
+			const { error } = await authClient.signIn.social({
 				provider: "google",
-				callbackURL: "/inbox",
+				callbackURL: "/space",
 			});
 			if (error) {
 				toast.error("Error", { description: error.message });
@@ -46,7 +46,7 @@ const LoginPageComponent = () => {
 		}
 	};
 
-	const handleSignInWithEmail = async (e: React.FormEvent) => {
+	const handleSignInWithEmail = async (e: React.ChangeEvent) => {
 		e.preventDefault();
 		if (!email || !password) {
 			toast.error("Error", { description: "Please fill in all fields" });
@@ -78,7 +78,7 @@ const LoginPageComponent = () => {
 					(data?.user as { hasCompletedOnboarding?: boolean })
 						?.hasCompletedOnboarding
 				) {
-					router.push("/inbox");
+					router.push("/space");
 				} else {
 					router.push("/onboarding");
 				}

@@ -8,7 +8,7 @@ import { PLANS } from "@/lib/plans";
 import { db } from "@/server/db";
 import { emailAiMetadata, emailChunks, user } from "@/server/db/schema";
 
-const INITIAL_BATCH_SIZE = 10;
+const INITIAL_BATCH_SIZE = 5;
 const GMAIL_SYNC_EVENT = "sync/gmail.initial-sync.requested";
 const GMAIL_CONNECTED_EVENT = "sync/gmail.connected";
 

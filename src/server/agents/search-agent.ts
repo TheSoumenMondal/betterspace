@@ -1,10 +1,16 @@
 import { Agent } from "@openai/agents";
 import type { corsair } from "@/corsair";
-import { createCorsairTools } from "./tools";
+import { createCorsairTools, createSearchLocalEmailsTool } from "./tools";
 
 export function createSearchAgent(
 	corsairClient: ReturnType<typeof corsair.withTenant>,
+	options?: { tenantId?: string | null },
 ) {
+	const tools = createCorsairTools(corsairClient);
+	if (options?.tenantId) {
+		tools.push(createSearchLocalEmailsTool(options.tenantId));
+	}
+
 	return new Agent({
 		name: "Advanced Search Agent",
 		handoffDescription:
@@ -16,9 +22,8 @@ export function createSearchAgent(
 			instruction given to you below. Carry out exactly that instruction and report back a concise,
 			factual result with relevant snippets.
 
-			Use the \`run_script\` tool to perform advanced searches (e.g. Corsair search APIs or Gmail
-			advanced search parameters). Use \`list_operations\` and \`get_schema\` before writing scripts
-			for unfamiliar operations.
+			Prioritize using the \`search_local_emails\` tool if the query involves searching for emails by keyword, sender, or subject, as it provides enriched, pre-summarized results quickly.
+			If local search is insufficient, use the \`run_script\` tool to perform advanced searches (e.g. Corsair search APIs or Gmail advanced search parameters). Use \`list_operations\` and \`get_schema\` before writing scripts for unfamiliar operations.
 
 			If a search returns many results or multiple plausible matches for what looks like a targeted
 			lookup ("the email from John about the contract"), don't pick one arbitrarily — return the
@@ -30,6 +35,6 @@ export function createSearchAgent(
 			If the instruction has nothing to do with finding or searching data, reply that you only
 			handle search tasks.
 		`,
-		tools: createCorsairTools(corsairClient),
+		tools,
 	});
 }

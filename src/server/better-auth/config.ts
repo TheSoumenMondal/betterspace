@@ -12,10 +12,16 @@ export const auth = betterAuth({
 	database: drizzleAdapter(db, {
 		provider: "pg",
 	}),
+	account: {
+		accountLinking: {
+			enabled: true,
+		},
+	},
 	emailAndPassword: {
 		enabled: true,
 		requireEmailVerification: true,
 	},
+
 	baseURL: env.BETTER_AUTH_URL,
 	trustedOrigins: [env.APP_URL],
 	socialProviders: {
@@ -47,7 +53,6 @@ export const auth = betterAuth({
 	},
 
 	plugins: [
-		nextCookies(),
 		emailOTP({
 			async sendVerificationOTP({ email, otp, type }) {
 				if (type === "sign-in" || type === "email-verification") {
@@ -67,6 +72,7 @@ export const auth = betterAuth({
 				}
 			},
 		}),
+		nextCookies(),
 	],
 });
 

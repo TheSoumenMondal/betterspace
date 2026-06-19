@@ -224,6 +224,10 @@ export function MailLayout({ labelId = "INBOX" }: { labelId?: string }) {
 		{
 			getNextPageParam: (lastPage) => lastPage.nextCursor,
 			initialCursor: null as number | null,
+			refetchInterval: (query) => {
+				const pages = query.state?.data?.pages;
+				return !pages || pages[0]?.items?.length === 0 ? 3000 : false;
+			},
 		},
 	);
 

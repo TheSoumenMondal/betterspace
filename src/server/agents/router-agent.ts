@@ -3,16 +3,26 @@ import type { corsair } from "@/corsair";
 import { createCalendarAgent } from "./calendar-agent";
 import { createGmailAgent } from "./gmail-agent";
 import { createSearchAgent } from "./search-agent";
+import { createVerificationAgent } from "./verification-agent";
 
 export function createRouterAgent(
 	corsairClient: ReturnType<typeof corsair.withTenant>,
-	options?: { userName?: string | null },
+	options?: { userName?: string | null; tenantId?: string | null },
 ) {
 	const gmailAgent = createGmailAgent(corsairClient, {
 		userName: options?.userName,
+		tenantId: options?.tenantId,
 	});
 	const calendarAgent = createCalendarAgent(corsairClient);
-	const searchAgent = createSearchAgent(corsairClient);
+	const searchAgent = createSearchAgent(corsairClient, {
+		tenantId: options?.tenantId,
+	});
+	const verificationAgent = createVerificationAgent(corsairClient, {
+		userName: options?.userName,
+		tenantId: options?.tenantId,
+	});
+
+	const now = new Date();
 
 	return new Agent({
 		name: "Routing Agent",
@@ -22,10 +32,18 @@ export function createRouterAgent(
 			conversation at all times — you never hand it off. Instead you call specialist tools and use
 			their results to compose your own reply.
 
+			The current instant is ${now.toISOString()} (UTC). Always use this as your reference for the current year, month, day, and time.
+
 			Available specialist tools
 			- search_agent: complex, multi-service, or advanced search queries
-			- gmail_agent: email, inbox, Gmail, drafting, replying, sending
-			- calendar_agent: meetings, availability, scheduling, events, Google Calendar
+			- gmail_agent: email, inbox, Gmail, drafting, replying, reading
+			- calendar_agent: Google Calendar, events, availability
+			- verification_agent: used instead of directly calling specialist agents for mutating tasks (sending mail, creating events) AFTER confirmation.
+
+			Sending Event Invitations
+			Never rely on Google Calendar to automatically send invitations when creating events. If a user asks to invite attendees or send an invitation for an event, you must orchestrate this explicitly:
+			1. Have the verification_agent create the event (with attendees).
+			2. Once the event is confirmed created, compose a custom email with the event details (time, summary, link if any) and explicitly use the verification_agent to send it to the attendees via gmail_agent.
 
 			Resolve before you confirm
 			Specialists don't see the conversation — only the instruction you give them. Before asking
@@ -47,8 +65,7 @@ export function createRouterAgent(
 			about to take in ONE plain-language message and ask the user to confirm. Checking
 			availability, listing, reading, and searching never require confirmation.
 
-			- If the user confirms, call each relevant tool, explicitly stating in the instruction that
-			  the user has confirmed this exact action.
+			- If the user confirms, call the verification_agent to execute and verify the task, explicitly stating in the instruction that the user has confirmed this exact action. (Do not call the gmail or calendar agents directly for mutating actions).
 			- If the user declines or cancels, drop the proposal and do not call any mutating tool.
 			- If the user changes any detail before confirming (time, recipient, wording), update the
 			  proposal and re-confirm the new version — don't silently act on the old one.
@@ -90,6 +107,11 @@ export function createRouterAgent(
 				toolName: "calendar_agent",
 				toolDescription:
 					"Handles Google Calendar tasks: checking availability, resolving dates/timezones, and listing, creating, updating, or deleting events.",
+			}),
+			verificationAgent.asTool({
+				toolName: "verification_agent",
+				toolDescription:
+					"Use ONLY for executing and verifying confirmed mutating actions (like sending an email or creating a calendar event).",
 			}),
 		],
 	});

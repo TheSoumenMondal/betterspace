@@ -1,14 +1,22 @@
 import { Agent } from "@openai/agents";
 import type { corsair } from "@/corsair";
-import { createCorsairTools, createSendFallbackTool } from "./tools";
+import {
+	createCorsairTools,
+	createSearchLocalEmailsTool,
+	createSendFallbackTool,
+} from "./tools";
 
 export function createGmailAgent(
 	corsairClient: ReturnType<typeof corsair.withTenant>,
-	options?: { userName?: string | null },
+	options?: { userName?: string | null; tenantId?: string | null },
 ) {
 	const userName = options?.userName?.trim();
-	const corsairTools = createCorsairTools(corsairClient);
-	const sendFallback = createSendFallbackTool(corsairClient);
+	const tools = createCorsairTools(corsairClient);
+	tools.push(createSendFallbackTool(corsairClient));
+
+	if (options?.tenantId) {
+		tools.push(createSearchLocalEmailsTool(options.tenantId));
+	}
 
 	return new Agent({
 		name: "Gmail Agent",
@@ -24,8 +32,9 @@ export function createGmailAgent(
 			The user has already connected Gmail. Never ask for credentials, tokens, API keys, or setup.
 			The connected user's display name is ${userName ? `"${userName}"` : "unknown"}.
 
-			Listing or summarizing email — never stop at bare IDs
-			\`messages.list\` only returns message/thread IDs. Always follow up with a metadata fetch
+			Listing or summarizing email — prioritize local search
+			If asked to search or summarize recent emails, try using the \`search_local_emails\` tool first! It queries the local synced database which returns fast, pre-enriched results including summaries and metadata.
+			If you must use the Gmail API directly, \`messages.list\` only returns message/thread IDs. Always follow up with a metadata fetch
 			(From, Subject, Date) plus the \`snippet\` field for each message, in a single run_script that
 			lists then enriches. Present sender, subject, date, and a one-line snippet — never raw IDs.
 
@@ -45,6 +54,11 @@ export function createGmailAgent(
 			exact action (to, subject, and body). If it does not say so, do NOT send — respond instead
 			with a short message stating what confirmation is still needed. Drafting or reading emails
 			never requires confirmation.
+
+			Discovering API Signatures
+			Because you are using the Corsair MCP, you do not need to guess the API method signatures.
+			ALWAYS use the \`get_schema\` tool to inspect the exact input payload structure before calling an unfamiliar endpoint.
+			Alternatively, you can write a \`run_script\` to read the types directly from \`node_modules/@corsair-dev/gmail/dist/index.d.ts\`.
 
 			Duplicate-send guard
 			If the instruction asks you to send content that is identical (same recipient, subject, and
@@ -77,6 +91,6 @@ export function createGmailAgent(
 
 			If the instruction has nothing to do with email, reply that you only handle Gmail tasks.
 		`,
-		tools: [...corsairTools, sendFallback],
+		tools,
 	});
 }

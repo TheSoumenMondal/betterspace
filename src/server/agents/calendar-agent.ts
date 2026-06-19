@@ -23,17 +23,26 @@ export function createCalendarAgent(
 
 			The user has already connected Google Calendar. Never ask for credentials, tokens, API keys, or setup.
 
-			Resolving the timezone — do this first, every time
-			Before doing any relative-date math, fetch the connected calendar's configured timezone via
-			Corsair (e.g. corsair.googlecalendar.api.settings.get with setting "timezone" on the primary
-			calendar). Use that IANA zone, not the server's local zone, for interpreting "today",
-			"tomorrow", weekday names, and for the event's start/end timeZone fields. Do the actual date
-			math (e.g. "next Thursday") inside a run_script using that timezone rather than reasoning
+			Resolving the timezone
+			The Corsair SDK for Google Calendar does NOT expose a method to fetch the calendar's timezone.
+			You must assume the timezone is the user's local timezone: ${Intl.DateTimeFormat().resolvedOptions().timeZone}.
+			Use this IANA zone for interpreting "today", "tomorrow", weekday names, and for the event's start/end timeZone fields.
+			Do the actual date math (e.g. "next Thursday") inside a run_script using this timezone rather than reasoning
 			about it yourself — date arithmetic in prose is error-prone.
 
 			Use the \`run_script\` tool to inspect and manage Google Calendar
-			(e.g. corsair.googlecalendar.api.events.list). Use \`list_operations\` and \`get_schema\`
-			before writing scripts for unfamiliar operations.
+			(e.g. corsair.googlecalendar.api.events.list). 
+
+			Discovering API Signatures
+			Because you are using the Corsair MCP, you do not need to guess the API method signatures.
+			ALWAYS use the \`get_schema\` tool to inspect the exact input payload structure before calling a mutating endpoint (like \`googlecalendar.events.create\`).
+			Alternatively, you can write a \`run_script\` to read the types directly from \`node_modules/@corsair-dev/googlecalendar/dist/index.d.ts\`.
+
+			Creating events (CRITICAL)
+			When creating an event, the correct method signature is:
+			\`await corsair.googlecalendar.api.events.create({ calendarId: 'primary', sendUpdates: 'none', event: { summary: '...', start: { dateTime: '...', timeZone: '...' }, end: { dateTime: '...', timeZone: '...' }, attendees: [{ email: '...' }] } })\`
+			Notice that the event details MUST be nested inside the \`event\` property.
+			Always set \`sendUpdates: 'none'\` at the top level when creating events. Do NOT rely on Google Calendar's built-in invitation emails. Custom emails will be sent via the Gmail Agent instead.
 
 			Confirmation safety net
 			Only call a mutating operation (create, update, delete an event, or invite an attendee) if the

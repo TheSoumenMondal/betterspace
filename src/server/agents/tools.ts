@@ -1,7 +1,10 @@
 import { OpenAIAgentsProvider } from "@corsair-dev/mcp";
 import { tool } from "@openai/agents";
+import { and, desc, eq, ilike, or } from "drizzle-orm";
 import { z } from "zod";
 import type { corsair } from "@/corsair";
+import { db } from "@/server/db";
+import { corsairAccounts, emailAiMetadata } from "@/server/db/schema";
 import { buildGmailRawMessage } from "@/server/gmail/mime";
 
 export function createCorsairTools(
@@ -89,6 +92,63 @@ export function createSendFallbackTool(
 						error instanceof Error
 							? error.message
 							: "Unknown error sending email",
+				});
+			}
+		},
+	});
+}
+
+export function createSearchLocalEmailsTool(tenantId: string) {
+	return tool({
+		name: "search_local_emails",
+		description:
+			"Searches the local synced database for emails using a keyword. Use this if Gmail API fails or to find pre-summarized emails quickly.",
+		parameters: z.object({
+			query: z
+				.string()
+				.describe("Keyword to search in sender, subject, or summary"),
+			limit: z.number().optional().default(10),
+		}),
+		execute: async ({ query, limit }) => {
+			try {
+				const results = await db
+					.select({
+						id: emailAiMetadata.emailId,
+						subject: emailAiMetadata.subject,
+						from: emailAiMetadata.fromAddress,
+						summary: emailAiMetadata.summary,
+						date: emailAiMetadata.emailDate,
+						actionItems: emailAiMetadata.actionItems,
+					})
+					.from(emailAiMetadata)
+					.innerJoin(
+						corsairAccounts,
+						eq(emailAiMetadata.accountId, corsairAccounts.id),
+					)
+					.where(
+						and(
+							eq(corsairAccounts.tenantId, tenantId),
+							or(
+								ilike(emailAiMetadata.fromAddress, `%${query}%`),
+								ilike(emailAiMetadata.subject, `%${query}%`),
+								ilike(emailAiMetadata.summary, `%${query}%`),
+							),
+						),
+					)
+					.orderBy(desc(emailAiMetadata.emailDate))
+					.limit(limit);
+
+				return JSON.stringify({
+					success: true,
+					results,
+				});
+			} catch (error) {
+				return JSON.stringify({
+					success: false,
+					error:
+						error instanceof Error
+							? error.message
+							: "Unknown error searching local database",
 				});
 			}
 		},

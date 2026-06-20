@@ -10,11 +10,15 @@ type Props = {
 const layout = async ({ children }: Props) => {
 	const session = await getSession();
 	if (session) {
-		if (session?.user.hasCompletedOnboarding) {
-			redirect("/space");
-		} else {
-			redirect("/onboarding");
+		// Only redirect fully verified users away from auth pages
+		if (session.user.emailVerified) {
+			if (session?.user.hasCompletedOnboarding) {
+				redirect("/space");
+			} else {
+				redirect("/onboarding");
+			}
 		}
+		// Unverified users may remain on /auth/verify
 	}
 
 	return (

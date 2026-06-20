@@ -12,6 +12,12 @@ const layout = async ({ children }: Props) => {
 		redirect("/auth/login");
 	}
 
+	// Block unverified email users from any screen
+	if (!session.user.emailVerified) {
+		const email = encodeURIComponent(session.user.email ?? "");
+		redirect(`/auth/verify?email=${email}`);
+	}
+
 	return <div>{children}</div>;
 };
 

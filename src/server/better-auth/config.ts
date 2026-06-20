@@ -56,19 +56,31 @@ export const auth = betterAuth({
 		emailOTP({
 			async sendVerificationOTP({ email, otp, type }) {
 				if (type === "sign-in" || type === "email-verification") {
-					await resend.emails.send({
-						from: "Betterspace <[email protected]>",
-						to: email,
-						subject: "Your OTP Code",
-						html: `
-							<div style="font-family: sans-serif; padding: 20px;">
-								<h2>Verify your email</h2>
-								<p>Your one-time password (OTP) is:</p>
-								<h1 style="letter-spacing: 4px;">${otp}</h1>
-								<p>This code will expire in a few minutes.</p>
-							</div>
-						`,
-					});
+					if (process.env.NODE_ENV === "development") {
+						console.log(`\n🔑 [DEV] OTP for ${email}: ${otp}\n`);
+					}
+					try {
+						const { data, error } = await resend.emails.send({
+							from: "BetterSpace <onboarding@betterspace.tech>",
+							to: email,
+							subject: "Your OTP Code",
+							html: `
+								<div style="font-family: sans-serif; padding: 20px;">
+									<h2>Verify your email</h2>
+									<p>Your one-time password (OTP) is:</p>
+									<h1 style="letter-spacing: 4px;">${otp}</h1>
+									<p>This code will expire in a few minutes.</p>
+								</div>
+							`,
+						});
+						if (error) {
+							console.error("Resend API Error:", error);
+						} else {
+							console.log("Resend API Success:", data);
+						}
+					} catch (e) {
+						console.error("Resend API Exception:", e);
+					}
 				}
 			},
 		}),

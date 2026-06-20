@@ -64,6 +64,10 @@ const SignupPageComponent = () => {
 				toast.error("Error", { description: error.message });
 			} else {
 				toast.success("Account created! Please verify your email.");
+				await authClient.emailOtp.sendVerificationOtp({
+					email,
+					type: "email-verification",
+				});
 				router.push(`/auth/verify?email=${encodeURIComponent(email)}`);
 			}
 		} catch (error) {

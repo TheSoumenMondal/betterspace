@@ -57,7 +57,7 @@ export const auth = betterAuth({
 			async sendVerificationOTP({ email, otp, type }) {
 				if (type === "sign-in" || type === "email-verification") {
 					await resend.emails.send({
-						from: "BetterSpace <onboarding@resend.dev>",
+						from: "Betterspace <[email protected]>",
 						to: email,
 						subject: "Your OTP Code",
 						html: `

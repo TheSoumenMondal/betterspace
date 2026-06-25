@@ -1,6 +1,7 @@
 "use client";
 
 import { format } from "date-fns";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button as Button2 } from "@/components/ui/button-2";
@@ -36,6 +37,8 @@ export function EventDialog({
 	const [location, setLocation] = useState("");
 	const [description, setDescription] = useState("");
 	const [isAllDay, setIsAllDay] = useState(false);
+	const pathname = usePathname();
+	const isDemo = pathname?.startsWith("/demo");
 
 	// Basic string management for dates/times to make native inputs easy
 	const [startDate, setStartDate] = useState("");
@@ -135,6 +138,12 @@ export function EventDialog({
 			endAt,
 			timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
 		};
+
+		if (isDemo) {
+			toast.info("Event actions are simulated in demo mode.");
+			onClose();
+			return;
+		}
 
 		if (isEdit && event?.id) {
 			updateMutation.mutate({ ...payload, eventId: event.id });

@@ -96,7 +96,9 @@ const LoginPageComponent = () => {
 	return (
 		<div className="flex w-full flex-col">
 			<div className="flex w-full items-center justify-center">
-				<AppLogo hideText logoClassName="size-8" size="lg" />
+				<Link href="/">
+					<AppLogo hideText logoClassName="size-8" size="lg" />
+				</Link>
 			</div>
 			<div className="mt-6 mb-10 space-y-2">
 				<p className="font-copper-bt-regular font-semibold text-2xl">

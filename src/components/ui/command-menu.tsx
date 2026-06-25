@@ -36,6 +36,7 @@ import {
 	CommandList,
 	CommandShortcut,
 } from "@/components/ui/command";
+import { mockEmails } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 import { authClient } from "@/server/better-auth/client";
 import { api } from "@/trpc/react";
@@ -131,26 +132,72 @@ function parseNaturalLanguageToGmail(input: string): string {
 }
 
 function AdvancedMode({ onClose }: { onClose: () => void }) {
+	const pathname = usePathname();
 	const router = useRouter();
+	const isDemo = pathname.startsWith("/demo");
 	const [prompt, setPrompt] = React.useState("");
 	const [query, setQuery] = React.useState("");
 	const inputRef = React.useRef<HTMLInputElement>(null);
+	const [demoData, setDemoData] = React.useState<{
+		items: {
+			id: string;
+			payload: { headers?: { name: string; value: string }[] };
+			snippet: string;
+		}[];
+	} | null>(null);
+	const [demoIsLoading, setDemoIsLoading] = React.useState(false);
 
 	React.useEffect(() => {
 		// Auto-focus field when mode opens
 		setTimeout(() => inputRef.current?.focus(), 50);
 	}, []);
 
-	const { data, isLoading } = api.gmail.searchMails.useQuery(
-		{ query, limit: 15 },
-		{ enabled: query.length > 0 },
-	);
+	const { data: realData, isLoading: realIsLoading } =
+		api.gmail.searchMails.useQuery(
+			{ query, limit: 15 },
+			{ enabled: query.length > 0 && !isDemo },
+		);
+
+	const data = isDemo ? demoData : realData;
+	const isLoading = isDemo ? demoIsLoading : realIsLoading;
 
 	const buildAndRun = (e: React.FormEvent) => {
 		e.preventDefault();
 		if (!prompt.trim()) return;
-		const parsedQuery = parseNaturalLanguageToGmail(prompt);
+
+		const parsedQuery = isDemo ? prompt : parseNaturalLanguageToGmail(prompt);
 		setQuery(parsedQuery);
+
+		if (isDemo) {
+			setDemoIsLoading(true);
+			setTimeout(() => {
+				const keywords = prompt.toLowerCase().split(/\s+/).filter(Boolean);
+				const filtered = mockEmails
+					.filter((m) => {
+						const subject =
+							m.payload.headers.find((h) => h.name === "Subject")?.value || "";
+						const from =
+							m.payload.headers.find((h) => h.name === "From")?.value || "";
+
+						return keywords.some(
+							(k) =>
+								(m.snippet || "").toLowerCase().includes(k) ||
+								subject.toLowerCase().includes(k) ||
+								from.toLowerCase().includes(k),
+						);
+					})
+					.slice(0, 15);
+
+				setDemoData({
+					items: filtered.map((m) => ({
+						id: m.id,
+						payload: m.payload,
+						snippet: m.snippet,
+					})),
+				});
+				setDemoIsLoading(false);
+			}, 800);
+		}
 	};
 
 	return (
@@ -238,7 +285,9 @@ function AdvancedMode({ onClose }: { onClose: () => void }) {
 											key={mail.id}
 											onClick={() => {
 												onClose();
-												router.push("/inbox");
+												router.push(
+													`${isDemo ? "/demo/inbox" : "/inbox"}?mailId=${mail.id}`,
+												);
 											}}
 											type="button"
 										>
@@ -374,14 +423,17 @@ function ActionsMode({ runCommand }: { runCommand: (fn: () => void) => void }) {
 }
 
 /* ---------- Main Component ---------- */
-export function CommandMenu() {
+function CommandMenuInner() {
 	const [open, setOpen] = React.useState(false);
 	const [mode, setMode] = React.useState<Mode>("search");
 	const router = useRouter();
+	const pathname = usePathname();
 	const { data: session } = authClient.useSession();
+	const isDemo = pathname.startsWith("/demo");
 	const isFreeUser =
-		(session?.user as { plan?: string })?.plan === "free" ||
-		!(session?.user as { plan?: string })?.plan;
+		!isDemo &&
+		((session?.user as { plan?: string })?.plan === "free" ||
+			!(session?.user as { plan?: string })?.plan);
 
 	// Open/close ⌘K
 	React.useEffect(() => {
@@ -664,5 +716,13 @@ export function CommandMenu() {
 				</div>
 			</CommandDialog>
 		</>
+	);
+}
+
+export function CommandMenu() {
+	return (
+		<React.Suspense fallback={null}>
+			<CommandMenuInner />
+		</React.Suspense>
 	);
 }

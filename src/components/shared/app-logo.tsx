@@ -28,7 +28,7 @@ const AppLogo = ({
 	return (
 		<Button
 			className={cn(
-				"flex select-none items-center justify-center hover:bg-transparent active:scale-none dark:hover:bg-transparent",
+				"flex cursor-pointer select-none items-center justify-center hover:bg-transparent active:scale-none dark:hover:bg-transparent",
 				className,
 			)}
 			size={size || "lg"}

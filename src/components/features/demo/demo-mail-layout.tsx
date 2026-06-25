@@ -30,7 +30,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button-2";
 import { Checkbox } from "@/components/ui/checkbox";
-
 import {
 	InputGroup,
 	InputGroupAddon,
@@ -50,8 +49,9 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Spinner } from "@/components/ui/spinner";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useDemoMail } from "@/hooks/use-demo-mail";
+import type { MockEmail } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
-import { api } from "@/trpc/react";
 
 interface MessagePartHeader {
 	name: string;
@@ -117,7 +117,7 @@ function getEmailBody(payload: MessagePart | undefined): {
 	return { type: "plain", content: "" };
 }
 
-function MailLayoutInner({ labelId = "INBOX" }: { labelId?: string }) {
+function DemoMailLayoutInner({ labelId = "INBOX" }: { labelId?: string }) {
 	const [filter, setFilter] = useState<"all" | "read" | "unread">("all");
 	const [sortOrder, setSortOrder] = useState<
 		"newest" | "oldest" | "priorityDesc" | "priorityAsc"
@@ -137,59 +137,27 @@ function MailLayoutInner({ labelId = "INBOX" }: { labelId?: string }) {
 	});
 	const inView = mobileInView || desktopInView;
 
-	const utils = api.useUtils();
-	const toggleStarMutation = api.gmail.toggleStar.useMutation({
-		onMutate: async ({ messageId, starred }) => {
-			await utils.gmail.getAllMails.cancel();
-			const queryParams = {
-				limit: 20,
-				labelId,
-				sort: sortOrder,
-				importance:
-					selectedImportances.length > 0 ? selectedImportances : undefined,
-				hasMeetingSignal: hasMeetingSignal || undefined,
-				hasDeadline: hasDeadline || undefined,
-				hasInvoice: hasInvoice || undefined,
-				hasAttachment: hasAttachment || undefined,
-				isUnread: filter === "all" ? undefined : filter === "unread",
-			};
-			const previousData = utils.gmail.getAllMails.getInfiniteData(queryParams);
-
-			utils.gmail.getAllMails.setInfiniteData(queryParams, (old) => {
-				if (!old) return old;
-				return {
-					...old,
-					pages: old.pages.map((page) => ({
-						...page,
-						items: page.items.map((item: Record<string, unknown>) => {
-							if (item.id === messageId) {
-								const currentLabelIds = (item.labelIds as string[]) || [];
-								return {
-									...item,
-									labelIds: starred
-										? [...new Set([...currentLabelIds, "STARRED"])]
-										: currentLabelIds.filter((id: string) => id !== "STARRED"),
-								};
-							}
-							return item;
-						}),
-					})),
-				};
-			});
-
-			return { previousData, queryParams };
-		},
-		onError: (_err, _newTodo, context) => {
-			if (context?.previousData) {
-				utils.gmail.getAllMails.setInfiniteData(
-					context.queryParams,
-					context.previousData,
-				);
-			}
-		},
-		onSettled: () => {
-			utils.gmail.getAllMails.invalidate();
-		},
+	const {
+		data,
+		isLoading,
+		error,
+		fetchNextPage,
+		hasNextPage,
+		isFetchingNextPage,
+		markAsRead,
+		toggleStar,
+		trashMail,
+		archiveMail,
+	} = useDemoMail({
+		labelId,
+		sort: sortOrder,
+		importance:
+			selectedImportances.length > 0 ? selectedImportances : undefined,
+		hasMeetingSignal: hasMeetingSignal || undefined,
+		hasDeadline: hasDeadline || undefined,
+		hasInvoice: hasInvoice || undefined,
+		hasAttachment: hasAttachment || undefined,
+		isUnread: filter === "all" ? undefined : filter === "unread",
 	});
 
 	const handleToggleStar = (
@@ -198,38 +166,8 @@ function MailLayoutInner({ labelId = "INBOX" }: { labelId?: string }) {
 		currentlyStarred: boolean,
 	) => {
 		e.stopPropagation();
-		toggleStarMutation.mutate({ messageId, starred: !currentlyStarred });
+		toggleStar(messageId, !currentlyStarred);
 	};
-
-	const {
-		data,
-		isLoading,
-		error,
-		fetchNextPage,
-		hasNextPage,
-		isFetchingNextPage,
-	} = api.gmail.getAllMails.useInfiniteQuery(
-		{
-			limit: 20,
-			labelId,
-			sort: sortOrder,
-			importance:
-				selectedImportances.length > 0 ? selectedImportances : undefined,
-			hasMeetingSignal: hasMeetingSignal || undefined,
-			hasDeadline: hasDeadline || undefined,
-			hasInvoice: hasInvoice || undefined,
-			hasAttachment: hasAttachment || undefined,
-			isUnread: filter === "all" ? undefined : filter === "unread",
-		},
-		{
-			getNextPageParam: (lastPage) => lastPage.nextCursor,
-			initialCursor: null as number | null,
-			refetchInterval: (query) => {
-				const pages = query.state?.data?.pages;
-				return !pages || pages[0]?.items?.length === 0 ? 3000 : false;
-			},
-		},
-	);
 
 	const router = useRouter();
 	const searchParams = useSearchParams();
@@ -255,119 +193,7 @@ function MailLayoutInner({ labelId = "INBOX" }: { labelId?: string }) {
 		[searchParams, pathname, router],
 	);
 
-	const removeMailOptimistically = async (messageId: string) => {
-		await utils.gmail.getAllMails.cancel();
-		const queryParams = {
-			limit: 20,
-			labelId,
-			sort: sortOrder,
-			importance:
-				selectedImportances.length > 0 ? selectedImportances : undefined,
-			hasMeetingSignal: hasMeetingSignal || undefined,
-			hasDeadline: hasDeadline || undefined,
-			hasInvoice: hasInvoice || undefined,
-			hasAttachment: hasAttachment || undefined,
-			isUnread: filter === "all" ? undefined : filter === "unread",
-		};
-		const previousData = utils.gmail.getAllMails.getInfiniteData(queryParams);
-
-		utils.gmail.getAllMails.setInfiniteData(queryParams, (old) => {
-			if (!old) return old;
-			return {
-				...old,
-				pages: old.pages.map((page) => ({
-					...page,
-					items: page.items.filter(
-						(item: Record<string, unknown>) => item.id !== messageId,
-					),
-				})),
-			};
-		});
-
-		setSelectedMailId(null);
-		return { previousData, queryParams };
-	};
-
-	const trashMailMutation = api.gmail.trashMail.useMutation({
-		onMutate: async ({ messageId }) => removeMailOptimistically(messageId),
-		onError: (_err, _newTodo, context) => {
-			if (context?.previousData) {
-				utils.gmail.getAllMails.setInfiniteData(
-					context.queryParams,
-					context.previousData,
-				);
-			}
-		},
-		onSettled: () => {
-			utils.gmail.getAllMails.invalidate();
-		},
-	});
-
-	const archiveMailMutation = api.gmail.archiveMail.useMutation({
-		onMutate: async ({ messageId }) => removeMailOptimistically(messageId),
-		onError: (_err, _newTodo, context) => {
-			if (context?.previousData) {
-				utils.gmail.getAllMails.setInfiniteData(
-					context.queryParams,
-					context.previousData,
-				);
-			}
-		},
-		onSettled: () => {
-			utils.gmail.getAllMails.invalidate();
-		},
-	});
-
-	const markAsReadMutation = api.gmail.markAsRead.useMutation({
-		onMutate: async ({ messageId }) => {
-			await utils.gmail.getAllMails.cancel();
-			const queryParams = {
-				limit: 20,
-				labelId,
-				sort: sortOrder,
-				importance:
-					selectedImportances.length > 0 ? selectedImportances : undefined,
-				hasMeetingSignal: hasMeetingSignal || undefined,
-				hasDeadline: hasDeadline || undefined,
-				hasInvoice: hasInvoice || undefined,
-				hasAttachment: hasAttachment || undefined,
-				isUnread: filter === "all" ? undefined : filter === "unread",
-			};
-			const previousData = utils.gmail.getAllMails.getInfiniteData(queryParams);
-
-			utils.gmail.getAllMails.setInfiniteData(queryParams, (old) => {
-				if (!old) return old;
-				return {
-					...old,
-					pages: old.pages.map((page) => ({
-						...page,
-						items: page.items.map((item: Record<string, unknown>) => {
-							if (item.id === messageId) {
-								const currentLabelIds = (item.labelIds as string[]) || [];
-								return {
-									...item,
-									labelIds: currentLabelIds.filter((id) => id !== "UNREAD"),
-								};
-							}
-							return item;
-						}),
-					})),
-				};
-			});
-
-			void utils.gmail.getUnreadCount.invalidate();
-
-			return { previousData, queryParams };
-		},
-		onError: (_err, _newTodo, context) => {
-			if (context?.previousData) {
-				utils.gmail.getAllMails.setInfiniteData(
-					context.queryParams,
-					context.previousData,
-				);
-			}
-		},
-	});
+	// Mock mutations handled by useDemoMail
 
 	const allMails = Array.from(
 		new Map(
@@ -377,7 +203,7 @@ function MailLayoutInner({ labelId = "INBOX" }: { labelId?: string }) {
 			]),
 		).values(),
 	);
-	const filteredData = allMails.filter((message: Record<string, unknown>) => {
+	const filteredData = allMails.filter((message: MockEmail) => {
 		if (filter === "all") return true;
 
 		// Keep the currently selected mail visible in the list until they navigate away from it,
@@ -392,13 +218,10 @@ function MailLayoutInner({ labelId = "INBOX" }: { labelId?: string }) {
 
 	useEffect(() => {
 		if (filteredData && filteredData.length > 0) {
-			if (
-				!filteredData.find(
-					(m: Record<string, unknown>) => m.id === selectedMailId,
-				)
-			) {
+			if (!filteredData.find((m: MockEmail) => m.id === selectedMailId)) {
 				if (window.innerWidth >= 1024) {
-					setSelectedMailId(filteredData[0].id as string);
+					const id = filteredData[0]?.id;
+					if (id) setSelectedMailId(id as string);
 				} else if (selectedMailId !== null) {
 					setSelectedMailId(null);
 				}
@@ -413,16 +236,16 @@ function MailLayoutInner({ labelId = "INBOX" }: { labelId?: string }) {
 	useEffect(() => {
 		if (selectedMailId) {
 			const selectedMail = allMails.find(
-				(m: Record<string, unknown>) => m.id === selectedMailId,
+				(m: MockEmail) => m.id === selectedMailId,
 			);
 			if (selectedMail) {
 				const labelIds = (selectedMail.labelIds as string[]) || [];
 				if (labelIds.includes("UNREAD")) {
-					markAsReadMutation.mutate({ messageId: selectedMailId });
+					markAsRead(selectedMailId);
 				}
 			}
 		}
-	}, [selectedMailId, allMails, markAsReadMutation.mutate]);
+	}, [selectedMailId, allMails, markAsRead]);
 
 	if (isLoading)
 		return (
@@ -438,7 +261,7 @@ function MailLayoutInner({ labelId = "INBOX" }: { labelId?: string }) {
 		);
 
 	const selectedMail = filteredData?.find(
-		(m: Record<string, unknown>) => m.id === selectedMailId,
+		(m: MockEmail) => m.id === selectedMailId,
 	);
 	let selectedBody = { type: "plain", content: "Loading..." };
 	let selectedSubject = "No Subject";
@@ -493,7 +316,7 @@ function MailLayoutInner({ labelId = "INBOX" }: { labelId?: string }) {
 				(h) => h.name.toLowerCase() === "date",
 			);
 			if (dateHeader) {
-				selectedDate = new Date(dateHeader.value).toLocaleString();
+				selectedDate = new Date(dateHeader.value).toLocaleString("en-US");
 			}
 		}
 	}
@@ -686,7 +509,7 @@ function MailLayoutInner({ labelId = "INBOX" }: { labelId?: string }) {
 							No emails found.
 						</div>
 					) : null}
-					{filteredData?.map((message: Record<string, unknown>) => {
+					{filteredData?.map((message: MockEmail) => {
 						const payload = message.payload as
 							| { headers?: Array<{ name: string; value: string }> }
 							| undefined;
@@ -714,8 +537,9 @@ function MailLayoutInner({ labelId = "INBOX" }: { labelId?: string }) {
 							const dateHeader = payload.headers.find(
 								(h) => h.name.toLowerCase() === "date",
 							);
-							if (dateHeader)
-								date = new Date(dateHeader.value).toLocaleDateString();
+							if (dateHeader) {
+								date = new Date(dateHeader.value).toLocaleDateString("en-US");
+							}
 						}
 
 						const isActive = selectedMailId === message.id;
@@ -910,7 +734,7 @@ function MailLayoutInner({ labelId = "INBOX" }: { labelId?: string }) {
 								<AlertDialogAction
 									onClick={() => {
 										if (selectedMailId) {
-											trashMailMutation.mutate({ messageId: selectedMailId });
+											trashMail(selectedMailId);
 										}
 									}}
 									variant="destructive"
@@ -938,7 +762,7 @@ function MailLayoutInner({ labelId = "INBOX" }: { labelId?: string }) {
 								<AlertDialogAction
 									onClick={() => {
 										if (selectedMailId) {
-											archiveMailMutation.mutate({ messageId: selectedMailId });
+											archiveMail(selectedMailId);
 										}
 									}}
 								>
@@ -1085,7 +909,7 @@ function MailLayoutInner({ labelId = "INBOX" }: { labelId?: string }) {
 	);
 }
 
-export function MailLayout({ labelId = "INBOX" }: { labelId?: string }) {
+export function DemoMailLayout({ labelId = "INBOX" }: { labelId?: string }) {
 	return (
 		<Suspense
 			fallback={
@@ -1094,7 +918,7 @@ export function MailLayout({ labelId = "INBOX" }: { labelId?: string }) {
 				</div>
 			}
 		>
-			<MailLayoutInner labelId={labelId} />
+			<DemoMailLayoutInner labelId={labelId} />
 		</Suspense>
 	);
 }

@@ -1,3 +1,4 @@
+import { PlayCircle } from "lucide-react";
 import { Highlighter } from "@/components/ui/highlighter";
 import { RainbowButton } from "@/components/ui/rainbow-button";
 import { ChatDemo } from "./chat-demo";
@@ -71,11 +72,23 @@ export const Hero = () => {
 												prioritize, and automate your work with AI. Spend less
 												time managing and more time getting things done.
 											</p>
-											<a href="/auth/login">
-												<RainbowButton size={"lg"} variant={"outline"}>
-													Get Started
-												</RainbowButton>
-											</a>
+											<div className="mt-6 mb-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
+												<a href="/auth/login">
+													<RainbowButton size={"lg"} variant={"outline"}>
+														Get Started
+													</RainbowButton>
+												</a>
+												<a href="/demo">
+													<RainbowButton
+														className="flex items-center gap-2"
+														size={"lg"}
+														variant={"outline"}
+													>
+														<PlayCircle className="size-4" />
+														View Demo
+													</RainbowButton>
+												</a>
+											</div>
 											<span className="mt-3 block text-center font-geist-sans text-muted-foreground text-xs">
 												Supercharge your calender and mailbox
 											</span>

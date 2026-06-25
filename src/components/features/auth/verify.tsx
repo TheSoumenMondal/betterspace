@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import AppLogo from "@/components/shared/app-logo";
 import { Button } from "@/components/ui/button-2";
@@ -187,4 +187,16 @@ const VerifyEmailPageComponent = () => {
 	);
 };
 
-export default VerifyEmailPageComponent;
+export default function VerifyEmailPage() {
+	return (
+		<Suspense
+			fallback={
+				<div className="flex h-screen items-center justify-center">
+					<Spinner />
+				</div>
+			}
+		>
+			<VerifyEmailPageComponent />
+		</Suspense>
+	);
+}

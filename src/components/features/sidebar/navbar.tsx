@@ -54,18 +54,29 @@ const segmentLabels: Record<string, string> = {
 };
 
 function Breadcrumb({ pathname }: { pathname: string }) {
-	const segments = pathname.split("/").filter(Boolean);
+	const allSegments = pathname.split("/").filter(Boolean);
 
-	if (segments.length === 0) {
+	const visibleSegments = allSegments
+		.map((segment, index) => {
+			return {
+				segment,
+				href: `/${allSegments.slice(0, index + 1).join("/")}`,
+			};
+		})
+		.filter(
+			({ segment }) =>
+				segment.toLowerCase() !== "demo" && !/^\d+$/.test(segment),
+		);
+
+	if (visibleSegments.length === 0) {
 		return <span className="font-medium text-foreground text-sm">Home</span>;
 	}
 
 	return (
 		<nav aria-label="Breadcrumb">
 			<ol className="flex items-center gap-1.5 text-sm">
-				{segments.map((segment, index) => {
-					const isLast = index === segments.length - 1;
-					const href = `/${segments.slice(0, index + 1).join("/")}`;
+				{visibleSegments.map(({ segment, href }, index) => {
+					const isLast = index === visibleSegments.length - 1;
 					const label =
 						segmentLabels[segment] ??
 						`${segment.charAt(0).toUpperCase()}${segment.slice(1)}`;
@@ -93,14 +104,17 @@ function Breadcrumb({ pathname }: { pathname: string }) {
 	);
 }
 
-export function AppNavbar() {
+import React from "react";
+
+function AppNavbarInner() {
 	const { toggleSidebar, open } = useSidebar();
 	const { navSlot, actionSlot } = useNavSlot();
 	const pathname = usePathname();
 	const router = useRouter();
 	const searchParams = useSearchParams();
-	const isConversationRoute = /^\/space\/[^/]+$/.test(pathname);
-	const isSpaceRoute = pathname.startsWith("/space");
+	const isConversationRoute = /^\/(?:demo\/)?space\/[^/]+$/.test(pathname);
+	const isSpaceRoute =
+		pathname.startsWith("/space") || pathname.startsWith("/demo/space");
 	const [sheetOpen, setSheetOpen] = useState(false);
 
 	const composeOpen = searchParams.get("compose") === "1";
@@ -117,12 +131,14 @@ export function AppNavbar() {
 		[searchParams, pathname, router],
 	);
 
-	const { data: conversations, isLoading } = api.chat.history.useQuery(
-		undefined,
-		{
-			enabled: isSpaceRoute,
-		},
-	);
+	const isDemo = pathname.startsWith("/demo");
+	const { data: realConversations, isLoading: realIsLoading } =
+		api.chat.history.useQuery(undefined, {
+			enabled: isSpaceRoute && !isDemo,
+		});
+
+	const conversations = isDemo ? [] : realConversations;
+	const isLoading = isDemo ? false : realIsLoading;
 
 	return (
 		<header className="sticky top-0 z-10 flex h-12 shrink-0 items-center gap-3 border-b bg-sidebar px-2">
@@ -296,5 +312,13 @@ export function AppNavbar() {
 			</div>
 			<ComposeDialog onOpenChange={setComposeOpen} open={composeOpen} />
 		</header>
+	);
+}
+
+export function AppNavbar() {
+	return (
+		<React.Suspense fallback={<div className="h-12 w-full border-b" />}>
+			<AppNavbarInner />
+		</React.Suspense>
 	);
 }

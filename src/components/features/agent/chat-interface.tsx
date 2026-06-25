@@ -4,7 +4,6 @@ import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import AgentAvatar from "@/components/icons/agent-avatar";
-import { AudioWave01Icon } from "@/components/icons/audio-wave-01-icon";
 import { SendIcon } from "@/components/icons/send-icon";
 import { Button, buttonVariants } from "@/components/ui/button-2";
 import { Textarea } from "@/components/ui/textarea";
@@ -180,9 +179,6 @@ export function ChatInterface({ conversationId }: { conversationId?: string }) {
 								value={input}
 							/>
 							<div className="absolute right-2 bottom-2 flex gap-2">
-								<Button type="button" variant="muted">
-									<AudioWave01Icon />
-								</Button>
 								<Button type="submit" variant="muted">
 									<SendIcon />
 								</Button>
@@ -209,9 +205,6 @@ export function ChatInterface({ conversationId }: { conversationId?: string }) {
 								value={input}
 							/>
 							<div className="absolute right-2 bottom-2 flex gap-2">
-								<Button type="button" variant="muted">
-									<AudioWave01Icon />
-								</Button>
 								<Button type="submit" variant="muted">
 									<SendIcon />
 								</Button>

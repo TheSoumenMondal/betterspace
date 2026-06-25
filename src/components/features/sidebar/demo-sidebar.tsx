@@ -1,4 +1,7 @@
+import { LogInIcon } from "lucide-react";
+import Link from "next/link";
 import type { ElementType } from "react";
+import { Button } from "@/components/ui/button-2";
 
 import {
 	Sidebar,
@@ -9,7 +12,7 @@ import {
 	SidebarMenuItem,
 } from "@/components/ui/sidebar";
 
-import { AppSidebarNav } from "./app-sidebar-nav";
+import { DemoSidebarNav } from "./demo-sidebar-nav";
 
 type IconSvgElement = readonly (readonly [
 	string,
@@ -31,79 +34,6 @@ type sidebarGroupProps = {
 	items: sidebarItemProps[];
 };
 
-const sidebarGroups: sidebarGroupProps[] = [
-	{
-		groupName: "Agent",
-		items: [
-			{
-				id: 1,
-				name: "AI Space",
-				icon: BrainIcon,
-				link: "/space",
-			},
-		],
-	},
-	{
-		groupName: "Mail",
-		items: [
-			{
-				id: 2,
-				name: "Inbox",
-				icon: MailIcon,
-				link: "/inbox",
-			},
-			{
-				id: 3,
-				name: "Starred",
-				icon: StarIcon,
-				link: "/starred",
-			},
-			{
-				id: 4,
-				name: "Sent",
-				icon: SendIcon,
-				link: "/sent",
-			},
-			{
-				id: 5,
-				name: "Drafts",
-				icon: LicenseDraftIcon,
-				link: "/drafts",
-			},
-			{
-				id: 6,
-				name: "Trash",
-				icon: Trash2Icon,
-				link: "/trash",
-			},
-			{
-				id: 7,
-				name: "Spam",
-				icon: TriangleAlertIcon,
-				link: "/spam",
-			},
-		],
-	},
-	{
-		groupName: "Calendar",
-		items: [
-			{
-				id: 8,
-				name: "Calendar",
-				icon: CalendarMonthIcon,
-				link: "/calendar",
-			},
-			{
-				id: 11,
-				name: "Events",
-				icon: CalendarDaysIcon,
-				link: "/events",
-			},
-		],
-	},
-];
-
-import Link from "next/link";
 import { BrainIcon } from "@/components/icons/brain-icon";
 import { CalendarDaysIcon } from "@/components/icons/calendar-days";
 import { CalendarMonthIcon } from "@/components/icons/calendar-month-icon";
@@ -114,18 +44,86 @@ import { StarIcon } from "@/components/icons/star-icon";
 import { Trash2Icon } from "@/components/icons/trash-2-icon";
 import { TriangleAlertIcon } from "@/components/icons/triangle-alert-icon";
 import AppLogo from "@/components/shared/app-logo";
-import { getSession } from "@/server/better-auth/server";
-import SidebarFooterCard from "./app-sidebar-footer";
 
-export async function AppSidebar() {
-	const session = await getSession();
-	const user = session?.user;
+const demoSidebarGroups: sidebarGroupProps[] = [
+	{
+		groupName: "Agent",
+		items: [
+			{
+				id: 1,
+				name: "AI Space (Demo)",
+				icon: BrainIcon,
+				link: "/demo/space",
+			},
+		],
+	},
+	{
+		groupName: "Mail",
+		items: [
+			{
+				id: 2,
+				name: "Inbox",
+				icon: MailIcon,
+				link: "/demo/inbox",
+			},
+			{
+				id: 3,
+				name: "Starred",
+				icon: StarIcon,
+				link: "/demo/starred",
+			},
+			{
+				id: 4,
+				name: "Sent",
+				icon: SendIcon,
+				link: "/demo/sent",
+			},
+			{
+				id: 5,
+				name: "Drafts",
+				icon: LicenseDraftIcon,
+				link: "/demo/drafts",
+			},
+			{
+				id: 6,
+				name: "Trash",
+				icon: Trash2Icon,
+				link: "/demo/trash",
+			},
+			{
+				id: 7,
+				name: "Spam",
+				icon: TriangleAlertIcon,
+				link: "/demo/spam",
+			},
+		],
+	},
+	{
+		groupName: "Calendar",
+		items: [
+			{
+				id: 8,
+				name: "Calendar",
+				icon: CalendarMonthIcon,
+				link: "/demo/calendar",
+			},
+			{
+				id: 11,
+				name: "Events",
+				icon: CalendarDaysIcon,
+				link: "/demo/events",
+			},
+		],
+	},
+];
+
+export function DemoSidebar() {
 	return (
 		<Sidebar className="bg-background" collapsible="icon" variant="sidebar">
 			<SidebarHeader className="flex h-12 items-center justify-center border-b p-0 px-2">
 				<SidebarMenu>
 					<SidebarMenuItem>
-						<Link href="/space">
+						<Link href="/">
 							<AppLogo
 								className="flex w-full cursor-pointer justify-start gap-2 p-0 pl-1.5"
 								logoClassName="size-5 shrink-0"
@@ -137,10 +135,21 @@ export async function AppSidebar() {
 				</SidebarMenu>
 			</SidebarHeader>
 			<SidebarContent className="gap-0">
-				<AppSidebarNav groups={sidebarGroups} />
+				<DemoSidebarNav groups={demoSidebarGroups} />
 			</SidebarContent>
-			<SidebarFooter>
-				<SidebarFooterCard user={user} />
+			<SidebarFooter className="p-2">
+				<SidebarMenu>
+					<SidebarMenuItem>
+						<Link className="flex w-full" href="/auth/login">
+							<Button className="w-full justify-start" variant="info">
+								<LogInIcon />
+								<span className="truncate group-data-[collapsible=icon]:hidden">
+									Login to access all features
+								</span>
+							</Button>
+						</Link>
+					</SidebarMenuItem>
+				</SidebarMenu>
 			</SidebarFooter>
 		</Sidebar>
 	);

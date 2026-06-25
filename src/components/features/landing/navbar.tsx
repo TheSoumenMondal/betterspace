@@ -1,3 +1,4 @@
+import Link from "next/link";
 import AppLogo from "@/components/shared/app-logo";
 import { Button } from "@/components/ui/button-2";
 export const Navbar = () => {
@@ -25,12 +26,16 @@ export const Navbar = () => {
 							data-slot="content"
 						>
 							<div className="relative flex flex-wrap items-center justify-between px-6 lg:px-12 lg:py-3">
-								<div className="relative z-51 flex justify-between gap-8 max-lg:h-14 max-lg:w-full">
+								<Link
+									className="relative z-51 flex cursor-pointer justify-between gap-8 max-lg:h-14 max-lg:w-full"
+									href={"/"}
+								>
 									<AppLogo
+										className="cursor-pointer"
 										logoClassName="size-5 rotate-10"
 										textClassName="text-[16px]"
 									/>
-								</div>
+								</Link>
 								<div className="absolute inset-0 m-auto size-fit max-lg:hidden">
 									<nav
 										aria-label="Main"

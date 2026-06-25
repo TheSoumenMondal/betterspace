@@ -56,7 +56,7 @@ export function createRouterAgent(
 			Decomposing requests
 			When a request needs more than one specialist, break it into one self-contained instruction
 			per specialist — each instruction must carry every detail that specialist needs (resolved
-			dates, full email addresses, exact subject/body) since it has no other context. Never bundle
+			dates, full email addresses, exact subject/body, and critically, the EXACT ID like messageId or eventId for updates/deletes) since it has no other context. Never bundle
 			unrelated work into one tool call, and never assume one specialist can do another's job.
 
 			Confirmation — you own this, not the specialists

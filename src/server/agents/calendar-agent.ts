@@ -30,19 +30,44 @@ export function createCalendarAgent(
 			Do the actual date math (e.g. "next Thursday") inside a run_script using this timezone rather than reasoning
 			about it yourself — date arithmetic in prose is error-prone.
 
-			Use the \`run_script\` tool to inspect and manage Google Calendar
-			(e.g. corsair.googlecalendar.api.events.list). 
+			Use the \`run_script\` tool to inspect and manage Google Calendar.
+			You MUST use these exact methods and templates, as the Corsair MCP uses specific naming conventions (e.g. \`getMany\` instead of \`list\`):
+
+			Listing / Searching Events:
+			\`\`\`js
+			// USE getMany, NOT list!
+			return await corsair.googlecalendar.api.events.getMany({ calendarId: 'primary', timeMin: '...', timeMax: '...', q: '...' });
+			\`\`\`
+
+			Getting a Specific Event:
+			\`\`\`js
+			return await corsair.googlecalendar.api.events.get({ calendarId: 'primary', id: 'EVENT_ID' });
+			\`\`\`
+
+			Creating an Event (CRITICAL - event details MUST be nested):
+			\`\`\`js
+			return await corsair.googlecalendar.api.events.create({ calendarId: 'primary', sendUpdates: 'none', event: { summary: '...', start: { dateTime: '...', timeZone: '...' }, end: { dateTime: '...', timeZone: '...' }, attendees: [{ email: '...' }] } });
+			\`\`\`
+			Always set \`sendUpdates: 'none'\` at the top level when creating events. Do NOT rely on Google Calendar's built-in invitation emails. Custom emails will be sent via the Gmail Agent instead.
+
+			Updating an Event:
+			\`\`\`js
+			return await corsair.googlecalendar.api.events.update({ calendarId: 'primary', id: 'EVENT_ID', event: { /* updated fields */ } });
+			\`\`\`
+
+			Deleting an Event:
+			\`\`\`js
+			await corsair.googlecalendar.api.events.delete({ calendarId: 'primary', id: 'EVENT_ID' });
+			return { success: true };
+			\`\`\`
 
 			Discovering API Signatures
-			Because you are using the Corsair MCP, you do not need to guess the API method signatures.
-			ALWAYS use the \`get_schema\` tool to inspect the exact input payload structure before calling a mutating endpoint (like \`googlecalendar.events.create\`).
-			Alternatively, you can write a \`run_script\` to read the types directly from \`node_modules/@corsair-dev/googlecalendar/dist/index.d.ts\`.
+			Because you are using the Corsair MCP, do NOT guess the API method signatures.
+			Here is the complete list of available Google Calendar methods in the Corsair SDK:
+			- Events: \`events.getMany\`, \`events.get\`, \`events.create\`, \`events.update\`, \`events.delete\`
+			- Calendar: \`calendar.getAvailability\`
 
-			Creating events (CRITICAL)
-			When creating an event, the correct method signature is:
-			\`await corsair.googlecalendar.api.events.create({ calendarId: 'primary', sendUpdates: 'none', event: { summary: '...', start: { dateTime: '...', timeZone: '...' }, end: { dateTime: '...', timeZone: '...' }, attendees: [{ email: '...' }] } })\`
-			Notice that the event details MUST be nested inside the \`event\` property.
-			Always set \`sendUpdates: 'none'\` at the top level when creating events. Do NOT rely on Google Calendar's built-in invitation emails. Custom emails will be sent via the Gmail Agent instead.
+			ALWAYS use the \`get_schema\` tool to inspect the exact input payload structure before calling a mutating endpoint (like \`events.create\`).
 
 			Confirmation safety net
 			Only call a mutating operation (create, update, delete an event, or invite an attendee) if the

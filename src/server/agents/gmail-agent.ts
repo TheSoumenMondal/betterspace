@@ -32,11 +32,59 @@ export function createGmailAgent(
 			The user has already connected Gmail. Never ask for credentials, tokens, API keys, or setup.
 			The connected user's display name is ${userName ? `"${userName}"` : "unknown"}.
 
-			Listing or summarizing email — prioritize local search
-			If asked to search or summarize recent emails, try using the \`search_local_emails\` tool first! It queries the local synced database which returns fast, pre-enriched results including summaries and metadata.
-			If you must use the Gmail API directly, \`messages.list\` only returns message/thread IDs. Always follow up with a metadata fetch
-			(From, Subject, Date) plus the \`snippet\` field for each message, in a single run_script that
-			lists then enriches. Present sender, subject, date, and a one-line snippet — never raw IDs.
+			Listing or summarizing email — prioritize Corsair MCP
+			If asked to search or summarize recent emails, ALWAYS try using the Corsair MCP via \`run_script\` first to fetch the most up-to-date live data directly from the Gmail API.
+			Use this exact script template for listing and enriching emails (adjust q and maxResults as needed):
+			\`\`\`js
+			const listRes = await corsair.gmail.api.messages.list({ userId: "me", maxResults: 10, q: "query if any" });
+			if (!listRes.messages) return [];
+			const emails = await Promise.all(listRes.messages.map(async (m) => {
+			  const full = await corsair.gmail.api.messages.get({ userId: "me", id: m.id, format: "full" });
+			  const headers = full.payload?.headers || [];
+			  return {
+			    id: full.id,
+			    from: headers.find(h => h.name.toLowerCase() === 'from')?.value,
+			    subject: headers.find(h => h.name.toLowerCase() === 'subject')?.value,
+			    date: headers.find(h => h.name.toLowerCase() === 'date')?.value,
+			    snippet: full.snippet
+			  };
+			}));
+			return emails;
+			\`\`\`
+			Present sender, subject, date, and a one-line snippet — never raw IDs.
+			If nothing is found via the Corsair MCP or if it fails, then and ONLY then fall back to using the \`search_local_emails\` tool to search the local database.
+
+			Reading a specific email
+			To read the full content of an email, use this exact script template:
+			\`\`\`js
+			const full = await corsair.gmail.api.messages.get({ userId: "me", id: "MESSAGE_ID_HERE", format: "full" });
+			const headers = full.payload?.headers || [];
+			function getText(parts) {
+			  if (!parts) return "";
+			  let text = "";
+			  for (const p of parts) {
+			    if (p.mimeType === "text/plain" && p.body?.data) {
+			      text += Buffer.from(p.body.data, "base64").toString("utf-8");
+			    } else if (p.parts) {
+			      text += getText(p.parts);
+			    }
+			  }
+			  return text;
+			}
+			return {
+			  from: headers.find(h => h.name.toLowerCase() === 'from')?.value,
+			  subject: headers.find(h => h.name.toLowerCase() === 'subject')?.value,
+			  date: headers.find(h => h.name.toLowerCase() === 'date')?.value,
+			  body: getText([full.payload]) || full.snippet
+			};
+			\`\`\`
+
+			Deleting an email
+			To delete an email (move to trash), use this exact script template:
+			\`\`\`js
+			await corsair.gmail.api.messages.trash({ userId: "me", id: "MESSAGE_ID_HERE" });
+			return { success: true };
+			\`\`\`
 
 			Recipient identity
 			Only send to email addresses explicitly present in the instruction. If a recipient is given
@@ -56,9 +104,16 @@ export function createGmailAgent(
 			never requires confirmation.
 
 			Discovering API Signatures
-			Because you are using the Corsair MCP, you do not need to guess the API method signatures.
-			ALWAYS use the \`get_schema\` tool to inspect the exact input payload structure before calling an unfamiliar endpoint.
-			Alternatively, you can write a \`run_script\` to read the types directly from \`node_modules/@corsair-dev/gmail/dist/index.d.ts\`.
+			You have access to Corsair tools. Because you are using the Corsair MCP, do NOT guess the API method paths. 
+			Here is the complete list of available Gmail methods in the Corsair SDK. Use exactly these paths (e.g. \`corsair.gmail.api.messages.list\`):
+			- Messages: \`messages.list\`, \`messages.get\`, \`messages.send\`, \`messages.delete\`, \`messages.modify\`, \`messages.batchModify\`, \`messages.trash\`, \`messages.untrash\`
+			- Labels: \`labels.list\`, \`labels.get\`, \`labels.create\`, \`labels.update\`, \`labels.delete\`
+			- Drafts: \`drafts.list\`, \`drafts.get\`, \`drafts.create\`, \`drafts.update\`, \`drafts.delete\`, \`drafts.send\`
+			- Threads: \`threads.list\`, \`threads.get\`, \`threads.modify\`, \`threads.delete\`, \`threads.trash\`, \`threads.untrash\`
+			- Users: \`users.getProfile\`
+			
+			ALWAYS use the \`get_schema\` tool to inspect the exact input payload structure before calling an unfamiliar endpoint (like \`messages.modify\`).
+			When referencing resources, always use their ID, not their name.
 
 			Duplicate-send guard
 			If the instruction asks you to send content that is identical (same recipient, subject, and

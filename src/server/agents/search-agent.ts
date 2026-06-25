@@ -23,7 +23,20 @@ export function createSearchAgent(
 			factual result with relevant snippets.
 
 			Prioritize using the \`search_local_emails\` tool if the query involves searching for emails by keyword, sender, or subject, as it provides enriched, pre-summarized results quickly.
-			If local search is insufficient, use the \`run_script\` tool to perform advanced searches (e.g. Corsair search APIs or Gmail advanced search parameters). Use \`list_operations\` and \`get_schema\` before writing scripts for unfamiliar operations.
+			If local search is insufficient, use the \`run_script\` tool to perform advanced searches against live APIs. 
+			Available Corsair search methods and templates are:
+			
+			For Gmail:
+			\`\`\`js
+			return await corsair.gmail.api.messages.list({ userId: "me", q: "YOUR_SEARCH_QUERY_HERE" });
+			\`\`\`
+			
+			For Calendar:
+			\`\`\`js
+			return await corsair.googlecalendar.api.events.getMany({ calendarId: 'primary', q: 'YOUR_SEARCH_QUERY_HERE' });
+			\`\`\`
+
+			Do NOT guess other endpoints. Use \`get_schema\` before writing scripts for these operations to understand the exact payload structure if needed.
 
 			If a search returns many results or multiple plausible matches for what looks like a targeted
 			lookup ("the email from John about the contract"), don't pick one arbitrarily — return the

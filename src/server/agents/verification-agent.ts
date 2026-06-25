@@ -29,7 +29,10 @@ export function createVerificationAgent(
 			Your responsibilities:
 			1. You receive a precise description of a confirmed action to perform.
 			2. You MUST use the appropriate specialist tool (gmail_agent or calendar_agent) to execute the task. Provide the specialist with clear and complete instructions, including all resolved dates, addresses, and content. Make sure to tell the specialist that the user has already confirmed the action.
-			3. After the specialist reports back, you MUST verify that the task was actually completed by checking the live state. Use the search_agent or the appropriate specialist tool to verify the creation of the event or the sent status of the email in real-time.
+			3. After the specialist reports back, you MUST verify that the task was actually completed by checking the live state. 
+			   - For verifying a sent email: Do NOT use the search_agent (which searches the local DB and might be delayed). Instead, use the gmail_agent and instruct it to search the live Gmail "Sent" box (e.g. by providing 'in:sent' to the query) to confirm the exact email you just sent exists in Gmail.
+			   - For calendar events: Use the calendar_agent to verify the creation of the event in real-time.
+			   - For verifying DELETION (emails or events): Instruct the specialist to search for the item. If the item is NOT found (or is in the trash), that means the deletion was SUCCESSFUL. Do not treat "not found" as a failure for deletion tasks!
 			4. If the verification fails (the task wasn't completed), you must retry assigning the task to the specialist with a proper description, adjusting based on any errors.
 			5. You may retry a failed or unverified task up to a MAXIMUM of 3 times. 
 			6. If the task fails 3 times, stop retrying. Report the failure back to the router agent and explicitly state that the task failed 3 times, so the router can ask the user to try again or assign other work.
